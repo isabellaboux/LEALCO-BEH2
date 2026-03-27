@@ -1,0 +1,49 @@
+File_ID,File_name,VOT,correct,AR,error
+1,LEALCO-BEH2_Audio_203_test_block1_partnerA_001.wav,999,1
+2,LEALCO-BEH2_Audio_203_test_block1_partnerA_002.wav,4837,2
+3,LEALCO-BEH2_Audio_203_test_block1_partnerA_003.wav,2771,0,Eiswürfel,4
+4,LEALCO-BEH2_Audio_203_test_block1_partnerA_004.wav,1087,1
+5,LEALCO-BEH2_Audio_203_test_block1_partnerA_005.wav,1694,1
+6,LEALCO-BEH2_Audio_203_test_block1_partnerA_006.wav,7896,0,Schräge,t2
+7,LEALCO-BEH2_Audio_203_test_block1_partnerA_007.wav,13121,2
+8,LEALCO-BEH2_Audio_203_test_block1_partnerA_008.wav,1622,1
+9,LEALCO-BEH2_Audio_203_test_block1_partnerA_009.wav,1347,1
+10,LEALCO-BEH2_Audio_203_test_block1_partnerA_010.wav,3394,1
+11,LEALCO-BEH2_Audio_203_test_block1_partnerA_011.wav,1225,1
+12,LEALCO-BEH2_Audio_203_test_block1_partnerA_012.wav,2290,1
+13,LEALCO-BEH2_Audio_203_test_block1_partnerA_013.wav,2508,2
+14,LEALCO-BEH2_Audio_203_test_block1_partnerA_014.wav,1022,1
+15,LEALCO-BEH2_Audio_203_test_block1_partnerA_015.wav,8755,0,Helm,4
+16,LEALCO-BEH2_Audio_203_test_block1_partnerA_016.wav,16606,0,Zig-zag,4
+17,LEALCO-BEH2_Audio_203_test_block1_partnerA_017.wav,1158,1
+18,LEALCO-BEH2_Audio_203_test_block1_partnerA_018.wav,22954,0,öffentliche Trinkwasserstelle,6
+19,LEALCO-BEH2_Audio_203_test_block1_partnerA_019.wav,1097,1
+20,LEALCO-BEH2_Audio_203_test_block1_partnerA_020.wav,2763,1
+21,LEALCO-BEH2_Audio_203_test_block1_partnerA_021.wav,3176,2
+22,LEALCO-BEH2_Audio_203_test_block1_partnerA_022.wav,1906,1
+23,LEALCO-BEH2_Audio_203_test_block1_partnerA_023.wav,1951,2
+24,LEALCO-BEH2_Audio_203_test_block1_partnerA_024.wav,1248,2
+25,LEALCO-BEH2_Audio_203_test_block1_partnerA_025.wav,1745,0,Maschinenpistole,t2
+26,LEALCO-BEH2_Audio_203_test_block1_partnerA_026.wav,5780,0,Master Joda,4
+27,LEALCO-BEH2_Audio_203_test_block1_partnerA_027.wav,18574,0,fehlende Ecke,6
+28,LEALCO-BEH2_Audio_203_test_block1_partnerA_028.wav,1410,2
+29,LEALCO-BEH2_Audio_203_test_block1_partnerA_029.wav,3125,1
+30,LEALCO-BEH2_Audio_203_test_block1_partnerA_030.wav,1065,1
+31,LEALCO-BEH2_Audio_203_test_block1_partnerA_031.wav,1159,1
+32,LEALCO-BEH2_Audio_203_test_block1_partnerA_032.wav,1043,1
+33,LEALCO-BEH2_Audio_203_test_block1_partnerA_033.wav,12666,0,Silo,4
+34,LEALCO-BEH2_Audio_203_test_block1_partnerA_034.wav,2753,0,,t5
+35,LEALCO-BEH2_Audio_203_test_block1_partnerA_035.wav,8789,0,Turm,4
+36,LEALCO-BEH2_Audio_203_test_block1_partnerA_036.wav,1822,1
+37,LEALCO-BEH2_Audio_203_test_block1_partnerA_037.wav,4257,1
+38,LEALCO-BEH2_Audio_203_test_block1_partnerA_038.wav,3602,0,Lotus,a2
+39,LEALCO-BEH2_Audio_203_test_block1_partnerA_039.wav,1496,0,Dalmatiner,t2
+40,LEALCO-BEH2_Audio_203_test_block1_partnerA_040.wav,1467,1
+41,LEALCO-BEH2_Audio_203_test_block1_partnerA_041.wav,1075,1
+42,LEALCO-BEH2_Audio_203_test_block1_partnerA_042.wav,1700,1
+43,LEALCO-BEH2_Audio_203_test_block1_partnerA_043.wav,1391,0,Seitenprofil,t1
+44,LEALCO-BEH2_Audio_203_test_block1_partnerA_044.wav,1093,1
+45,LEALCO-BEH2_Audio_203_test_block1_partnerA_045.wav,4215,0,langes Gesicht,6
+46,LEALCO-BEH2_Audio_203_test_block1_partnerA_046.wav,2061,2
+47,LEALCO-BEH2_Audio_203_test_block1_partnerA_047.wav,1352,1
+48,LEALCO-BEH2_Audio_203_test_block1_partnerA_048.wav,1578,2

@@ -1,0 +1,192 @@
+---
+title: "B_merge"
+---
+
+# LEALCO-BEH2: merge all data *from test task*
+
+### Goal
+
+Generate one file containing all the relevant data from the test task of the LEALCO-BEH study.
+
+### Inputs
+
+-   the **PsychoPy input files** containing information about the presented stimuli and conditions
+
+-   the **demographics**;the table containing (by subject) information about age, language spoken and other demographics
+
+-   the **debriefing**: make sure that the column containing hte subjID does not contrin the apostrophe
+
+-   the **VOT files**: this file contains informatoon about naming latencies, accuracy, and type of errors committed. [Note]{.underline}: these files need to be freed of the BOM. As some files (for unexplained reasons) still have, it should first be removed "manually" by opening the files in Notepad++ \>Encoding \> UTF-8\>Save. These files are easy to spot because they are heavier than the ones encoded in UTF-8.
+
+### Output
+
+The output file is a large .csv table containing the entire data of the file in a long format. It puts together the PsychoPy input files, the demographics, the VOT files as well as the relevant information from the debriefing questionnaire.
+
+## Load packages
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(readxl)
+library(tidyverse)
+```
+
+## Define which files to read
+
+```{r}
+# subjList <- c('001', '002', '003', '004', '005', '006', '007', '008', '009', '010',
+#               '011', '012', '013', '014', '015', '016', '017', '018', '019', '020',
+#               '021', '022', '023', '024', '025', '026', '027', '028', '029', '030',
+#               '031', '032', '033', '034')
+
+subjList <- c('201', '203', '204', '205', '206', '207', '208', '209', '210',
+              '211', '212', '213', '214', '215', '216', '217', '218', '219', 
+              '220', '221', '222', '224', '226', '227', '228', '229')
+partnerList <- c('A', 'B')
+blockList <- c('1', '2')
+```
+
+## Read files
+
+```{r}
+
+# ============== initialize empty df to be filled with all data from all subjects
+data <- data.frame()
+
+# ============== loop over files
+for (i_subjList in subjList) {
+  for (i_blockList in blockList) {
+    for (i_partnerList in partnerList) {
+      
+      # ================ define input files
+      IV_filename <- sprintf('data/conditions/LEALCO-BEH2_StimuliList_%s_test_block%s_partner%s.xlsx', i_subjList, i_blockList, i_partnerList)
+      demo_filename <- 'data/demographic/data_test470046_2025-05-30_11-06.csv'
+      VOT_filename <- sprintf('data/VOTandACC/LEALCO-BEH2_%s_test_block%s_partner%s_final_VOTs.csv',i_subjList, i_blockList, i_partnerList) 
+      debri_filename <- 'data/debrief/data_LEALCO-BEH2_2025-05-30_11-08.csv'
+      
+      # ================ read files
+      IV <- read_excel(IV_filename)
+      demo <- read.csv(demo_filename, sep = ";", fileEncoding = "Latin1", check.names = F)
+      VOT <- read.csv(VOT_filename, sep = ",", fileEncoding = "Latin1", check.names = F, na.strings = c(""))
+      debri <- read.csv(debri_filename, sep = ";", fileEncoding="Latin1", check.names = F)
+      #IV <- read.csv('data/conditions/LEALCO-BEH_Behavioral_001_test_block1_partnerA.csv')
+      #demo <- read.csv('data/demographic/LEALCO-BEH_demographics.csv', sep = ";", fileEncoding = "Latin1", check.names = F)
+      #VOT <- read.csv('data/VOTandACC/001_test_block1_partnerA_final_VOTs.csv', sep = ",", fileEncoding = "Latin1", check.names = F)
+      #debri <- read.csv('data/debrief/data_LEALCO-BEH_2024-05-14_16-48.csv', sep = "\t", fileEncoding="Latin1", check.names = F)
+      
+      # ================ clean up data
+      # remove lats row from condition file
+      #IV <- IV[-c(43),]
+      
+      # rename some variables fo facilitate later joining of dataframes
+      colnames(demo)[17] <- "subjID"
+      colnames(debri)[18] <- "subjID"
+      
+      # ================= make into factors
+      IV$subjID <- as_factor(as.integer(IV$subjID))
+      demo$subjID <- as_factor(demo$subjID)
+      debri$subjID <- as_factor(as.integer(debri$subjID))
+      
+      # =============== Put together the data stepwise in one file (by subject, partner & block)
+      # merge condition file with relevant variables of the VOT file
+      a <- bind_cols(IV, select(VOT, VOT, correct, AR, error))
+      # add  variables from the dmographic questionnaire
+      b <- left_join(a, demo, by='subjID')
+      # add  only relevant variables from the debriefing questionnaire
+      current <- left_join(b, select(debri, subjID, B101, B201, H101, H201, K101_01, N101, N201, S101, S201, T101, T201), by='subjID')
+      
+      # ============ append to dataframe
+      data <- rbind(data, current)
+      
+      
+    } #  end of partnerList
+  } #  end of blockList
+} #  end of subjList
+```
+
+## Make some adjustments
+
+Mark some trials as correct
+
+```{r}
+#  mark trials as correct
+data$error[is.na(data$error)] = 'correct'
+
+```
+
+Remove the two followinf items which were mistakenly both associated with the word "Tänzer":
+
+-   resized_B_A123.png
+
+-   resized_A_B008.png
+
+```{r}
+data <- data %>%
+  filter(!target_stimID %in% c('resized_B_A123.png', 'resized_A_B008.png'))
+```
+
+Determine how often label_A and label_B were selected in the untrained trials. This allows us to set a baseline for how frequently each label is associated with a given tangram.
+
+```{r}
+
+# read file
+labels_list <- read.csv("LEALCO-BEH2_Stimuli_final.csv", sep = ";", fileEncoding="UTF-8", check.names = F)
+
+names(labels_list)[names(labels_list) == 'stimCODE'] <- 'target_stimID'
+
+labels_list$other <- "other"
+
+labels_list <- labels_list %>%
+  filter(class == 'double_label') %>%
+  pivot_longer(col=c("label_1", "label_2", "other"), names_to = "name", values_to = "exact_produced_label")
+
+# mark which label was chosen
+data$produced_label <- 'other'
+data$produced_label[data$partner == 'A' & data$correct == 1] <- 'label_A'
+data$produced_label[data$partner == 'B' & data$correct == 2] <- 'label_A'
+data$produced_label[data$partner == 'A' & data$correct == 2] <- 'label_B'
+data$produced_label[data$partner == 'B' & data$correct == 1] <- 'label_B'
+
+# mark which label was chosen
+data$exact_produced_label <- 'other'
+data$exact_produced_label[data$correct == 1] <- data$target_label[data$correct == 1]
+data$exact_produced_label[data$correct == 2] <- data$alternative_label[data$correct == 2]
+
+data$type <- as_factor(data$type)
+
+baseline <- data %>%
+  filter(type == 'untrained') %>%
+  group_by(target_stimID, exact_produced_label) %>%
+  count()
+
+baseline <- left_join(labels_list, baseline, by=c("target_stimID", "exact_produced_label"))
+
+replace_na(list(exact_produced_label='other'))
+baseline[is.na(baseline)] <- 0
+
+total <- baseline %>%
+  group_by(target_stimID) %>%
+  summarize(total=sum(n))
+
+baseline <- left_join(baseline, total, by="target_stimID")
+
+baseline$norm <- baseline$n / baseline$total
+
+# plot
+ggplot(baseline, aes(fill=name, y=norm, x=target_stimID)) + 
+    geom_bar(position="stack", stat="identity") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ggplot(baseline, aes(x=norm, color=name, fill=name)) +
+  geom_histogram(position="identity") +
+  facet_wrap(~name)
+```
+
+## Save
+
+```{r}
+write.csv(data, 'data/LEALCO-BEH2_test_merged_data.csv', row.names=FALSE, fileEncoding = "UTF-8")
+
+write.csv(baseline, 'data/LEALCO-BEH2_test_merged_naming_norms.csv', row.names=FALSE, fileEncoding = "UTF-8")
+```
+
+## 

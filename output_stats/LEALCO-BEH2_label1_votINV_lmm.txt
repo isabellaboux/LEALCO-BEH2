@@ -1,0 +1,48 @@
+Linear mixed model fit by REML
+(p-values based on Wald z-scores) ['lmerMod']
+Formula: VOTinv ~ 1 + block + test_partner + block:test_partner + training_order +      test_partner:training_order + block:training_order + block:test_partner:training_order +  
+    (1 + test_partner | target_label) + (1 + test_partner | subjID)
+   Data: label1_vot
+Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,      calc.derivs = TRUE, use.last.params = FALSE, checkControl = list( 
+        check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",          check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",  
+        check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",          check.scaleX = "warning", check.formula.LHS = "stop"),  
+    checkConv = list(check.conv.grad = list(action = "warning",          tol = 0.002, relTol = NULL), check.conv.singular = list( 
+        action = "message", tol = 1e-04), check.conv.hess = list(         action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  "merControl"))
+
+REML criterion at convergence: -15347.2
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-4.2928 -0.5370  0.1023  0.6684  2.9068 
+
+Random effects:
+ Groups       Name          Variance  Std.Dev.  Corr 
+ subjID       (Intercept)   4.433e-09 6.658e-05      
+              test_partner1 3.665e-10 1.915e-05 -0.53
+ target_label (Intercept)   2.206e-08 1.485e-04      
+              test_partner1 2.168e-10 1.472e-05 0.85 
+ Residual                   3.177e-08 1.782e-04      
+Number of obs: 1085, groups:  subjID, 26; target_label, 24
+
+Fixed effects:
+                                       Estimate Std. Error t value Pr(>|t|)    
+(Intercept)                           8.356e-04  3.346e-05  24.971  < 2e-16 ***
+block1                               -2.784e-05  5.421e-06  -5.136 2.81e-07 ***
+test_partner1                         8.294e-06  7.332e-06   1.131    0.258    
+training_order1                       3.281e-06  1.415e-05   0.232    0.817    
+block1:test_partner1                 -5.408e-06  5.418e-06  -0.998    0.318    
+test_partner1:training_order1         1.072e-06  6.679e-06   0.161    0.872    
+block1:training_order1               -9.514e-07  5.420e-06  -0.176    0.861    
+block1:test_partner1:training_order1 -1.711e-06  5.420e-06  -0.316    0.752    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) block1 tst_p1 trnn_1 blck1:ts_1 t_1:_1 blck1:tr_1
+block1       0.001                                                  
+test_prtnr1  0.213  0.006                                           
+tranng_rdr1 -0.001  0.000  0.001                                    
+blck1:tst_1  0.001  0.008  0.005 -0.002                             
+tst_prt1:_1  0.001 -0.004 -0.013 -0.270  0.000                      
+blck1:trn_1  0.000 -0.019 -0.003  0.002  0.006      0.006           
+blck1:_1:_1 -0.001  0.006  0.001  0.002 -0.018      0.008  0.008    

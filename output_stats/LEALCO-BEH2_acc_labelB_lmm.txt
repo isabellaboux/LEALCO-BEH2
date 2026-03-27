@@ -1,0 +1,51 @@
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation)
+(p-values based on Wald z-scores) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: dummy_label_B ~ 1 + test_partner + c_norm + test_partner:c_norm +      training_order + test_partner:training_order + block + training_order:block +  
+    test_partner:block + test_partner:training_order:block +      c_norm:block + c_norm:training_order + test_partner:c_norm:training_order +  
+    c_norm:training_order:block + test_partner:c_norm:block +      test_partner:c_norm:training_order:block + (1 + test_partner +  
+    training_order + test_partner:training_order | target_label) +      (1 + test_partner | subjID)
+   Data: acc_multinomial
+Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,      calc.derivs = TRUE, use.last.params = FALSE, checkControl = list( 
+        check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",          check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",  
+        check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",          check.scaleX = "warning", check.formula.LHS = "stop"),  
+    checkConv = list(check.conv.grad = list(action = "warning",          tol = 0.002, relTol = NULL), check.conv.singular = list( 
+        action = "message", tol = 1e-04), check.conv.hess = list(         action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  "merControl"))
+
+     AIC      BIC   logLik deviance df.resid 
+  1337.2   1493.4   -639.6   1279.2     1583 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-5.8430 -0.2001  0.0017  0.1995  6.1290 
+
+Random effects:
+ Groups       Name                          Variance Std.Dev. Corr             
+ target_label (Intercept)                   10.1504  3.1860                    
+              test_partner1                 19.0312  4.3625   -0.40            
+              training_order1               10.9221  3.3049    0.50 -0.86      
+              test_partner1:training_order1  7.8667  2.8048   -0.94  0.45 -0.58
+ subjID       (Intercept)                    0.2978  0.5457                    
+              test_partner1                  1.1882  1.0900   0.37             
+Number of obs: 1612, groups:  target_label, 140; subjID, 26
+
+Fixed effects:
+                                            Estimate Std. Error  z value Pr(>|z|) Pr(>|t|)    
+(Intercept)                                  1.02136    0.75600  1.35100    0.177 0.176696    
+test_partner1                               -4.98963    0.76320 -6.53773    0.000 6.25e-11 ***
+c_norm                                      -1.39548    1.16238 -1.20053    0.230 0.229932    
+training_order1                              2.54081    0.67365  3.77169    0.000 0.000162 ***
+block1                                       0.09224    0.10085  0.91462    0.360 0.360391    
+test_partner1:c_norm                         7.02095    1.18268  5.93650    0.000 2.91e-09 ***
+test_partner1:training_order1               -0.71819    0.73125 -0.98214    0.326 0.326029    
+training_order1:block1                      -0.12462    0.10092 -1.23480    0.217 0.216904    
+test_partner1:block1                         0.11858    0.10096  1.17452    0.240 0.240185    
+c_norm:block1                               -0.38161    0.41898 -0.91081    0.362 0.362395    
+c_norm:training_order1                      -5.08543    1.13899 -4.46487    0.000 8.01e-06 ***
+test_partner1:training_order1:block1        -0.08872    0.10082 -0.87998    0.379 0.378869    
+test_partner1:c_norm:training_order1         0.70301    1.14180  0.61571    0.538 0.538089    
+c_norm:training_order1:block1                0.28845    0.41904  0.68836    0.491 0.491226    
+test_partner1:c_norm:block1                 -0.21759    0.41911 -0.51918    0.604 0.603636    
+test_partner1:c_norm:training_order1:block1  0.29355    0.41879  0.70096    0.483 0.483325    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1

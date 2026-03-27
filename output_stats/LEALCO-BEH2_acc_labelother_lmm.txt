@@ -1,0 +1,49 @@
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation)
+(p-values based on Wald z-scores) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: dummy_label_other ~ 1 + test_partner + block + test_partner:block +      training_order + test_partner:training_order + block:training_order +  
+    test_partner:block:training_order + (1 + test_partner + training_order +      test_partner:training_order | target_label)
+   Data: acc_multinomial
+Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,      calc.derivs = TRUE, use.last.params = FALSE, checkControl = list( 
+        check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",          check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",  
+        check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",          check.scaleX = "warning", check.formula.LHS = "stop"),  
+    checkConv = list(check.conv.grad = list(action = "warning",          tol = 0.002, relTol = NULL), check.conv.singular = list( 
+        action = "message", tol = 1e-04), check.conv.hess = list(         action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  "merControl"))
+
+     AIC      BIC   logLik deviance df.resid 
+  1069.7   1168.5   -516.8   1033.7     1774 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-1.0434 -0.1884 -0.1353 -0.0227  3.9804 
+
+Random effects:
+ Groups       Name                          Variance Std.Dev. Corr             
+ target_label (Intercept)                   4.639    2.154                     
+              test_partner1                 3.994    1.999     0.69            
+              training_order1               4.398    2.097    -0.55 -0.60      
+              test_partner1:training_order1 4.615    2.148    -0.55 -0.60  0.95
+Number of obs: 1792, groups:  target_label, 140
+
+Fixed effects:
+                                     Estimate Std. Error  z value Pr(>|z|) Pr(>|t|)    
+(Intercept)                          -4.69889    0.54052 -8.69321    0.000  < 2e-16 ***
+test_partner1                        -1.47857    0.52834 -2.79854    0.005  0.00513 ** 
+block1                                0.04404    0.10014  0.43982    0.660  0.66007    
+training_order1                       0.61483    0.54584  1.12641    0.260  0.25999    
+test_partner1:block1                  0.05204    0.10017  0.51953    0.603  0.60339    
+test_partner1:training_order1         0.74234    0.54943  1.35110    0.177  0.17666    
+block1:training_order1                0.08594    0.10016  0.85798    0.391  0.39090    
+test_partner1:block1:training_order1 -0.05239    0.10013 -0.52322    0.601  0.60082    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) tst_p1 block1 trnn_1 ts_1:1 t_1:_1 bl1:_1
+test_prtnr1  0.715                                          
+block1      -0.053 -0.056                                   
+tranng_rdr1  0.284  0.262 -0.060                            
+tst_prtn1:1 -0.058 -0.056  0.240 -0.027                     
+tst_prt1:_1  0.257  0.276 -0.024  0.739 -0.063              
+blck1:trn_1 -0.062 -0.026 -0.080 -0.058 -0.132 -0.058       
+tst_p1:1:_1 -0.022 -0.059 -0.132 -0.056 -0.081 -0.055  0.240
