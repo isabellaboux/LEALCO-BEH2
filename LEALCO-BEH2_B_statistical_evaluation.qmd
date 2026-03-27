@@ -1701,6 +1701,8 @@ tt
 
 The following analysis examines the reaction between Label Maintenance and (inverted) Naming Latency. This is interesting because there could be a speed accuracy trade-off (i.e. entraining with the partner is cognitively costly) or on the contrary it is possible that entraining with the partner is in fact facilitatory.
 
+#### Version 1: based on inverted naming latencies
+
 ```{r}
 # aggregte accuracy (within subject)
 acc_wSubj_match <- acc_wSubj_congruency %>%
@@ -1712,7 +1714,7 @@ votINV_wSubj_match <- data_2labels %>%
   filter(error == 'correct') %>%
   filter(!subjID %in%  exclusion_vot) %>%
   group_by(subjID, correct) %>%
-  summarise(mean_VOTinv = mean(VOTinv))
+  summarise(mean_VOTinv = mean(VOTinv), mean_VOT = mean(VOT))
 
 # merge the two DVs in one dataframe
 entrainment_data <- merge(acc_wSubj_match,votINV_wSubj_match,by=c("subjID","correct"))
@@ -1721,12 +1723,13 @@ entrainment_data <- merge(acc_wSubj_match,votINV_wSubj_match,by=c("subjID","corr
 entrainment_data <- entrainment_data %>% 
   pivot_wider(
     names_from = correct, 
-    values_from = c(proportion, mean_VOTinv)
+    values_from = c(proportion, mean_VOTinv, mean_VOT)
   )
 
 # calculate entrainment scores (same - different)
 entrainment_data$entrainment_ACC <- entrainment_data$proportion_matching - entrainment_data$`proportion_non-matching`
 entrainment_data$entrainment_VOTinv <- (entrainment_data$mean_VOTinv_matching - entrainment_data$`mean_VOTinv_non-matching`) * 10000
+entrainment_data$entrainment_VOT <- (entrainment_data$mean_VOT_matching - entrainment_data$`mean_VOT_non-matching`)
 
 # scatterplot
 ggplot(entrainment_data, aes(x=entrainment_VOTinv, y=entrainment_ACC)) +
@@ -1739,13 +1742,41 @@ ggplot(entrainment_data, aes(x=entrainment_VOTinv, y=entrainment_ACC)) +
   xlab('Entrainment NL\n(matching vs. mismatching)') +
   ylab('Entrainment LM\n(matching vs. mismatching)') +
   theme(axis.text=element_text(size=12), axis.title=element_text(size=12))
-ggsave("output_figures/LEALCO-BEH2_entrainment_correlation.pdf",  width=6, height=3.5)
+ggsave("output_figures/LEALCO-BEH2_entrainment_correlation_VOTinv.pdf",  width=6, height=3.5)
 
 # correlation
 corr <- cor.test(entrainment_data$entrainment_ACC, entrainment_data$entrainment_VOTinv)
-sink('output_stats/LEALCO-BEH2_entrainment_correlation.txt')
+sink('output_stats/LEALCO-BEH2_entrainment_correlation_VOTinv.txt')
 print(corr)
 sink()
+```
+
+```{r}
+
+# scatterplot
+ggplot(entrainment_data, aes(x=entrainment_VOT, y=entrainment_ACC)) +
+  geom_point() +
+  stat_smooth(method=lm, fullrange=TRUE, color = 'black') + 
+  geom_hline(yintercept=0, linetype="dotted") +
+  geom_vline(xintercept=0, linetype="dotted") +
+  xlim(-2600, 2600) +
+  ylim(-1.5, 1.5) + 
+  xlab('Entrainment NL\n(matching vs. mismatching)') +
+  ylab('Entrainment LM\n(matching vs. mismatching)') +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=12))
+ggsave("output_figures/LEALCO-BEH2_entrainment_correlation_VOTraw.pdf",  width=6, height=3.5)
+
+# correlation
+corr <- cor.test(entrainment_data$entrainment_ACC, entrainment_data$entrainment_VOTinv)
+sink('output_stats/LEALCO-BEH2_entrainment_correlation_VOTraw.txt')
+print(corr)
+sink()
+```
+
+### Version 2: based on raw naming latencies
+
+```{r}
+
 ```
 
 ## Error patterns at inaccurate trials
