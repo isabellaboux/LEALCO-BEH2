@@ -24,6 +24,7 @@ library(buildmer)
 library(emmeans)
 library(lmerTest)
 library(gridExtra)
+source('R/utils.R')
 ```
 
 # Set some custom settings
@@ -726,7 +727,7 @@ acc_binomial <- acc_binomial %>%
 Try to find the maximally convergent model by using the *buildmer()* approach.
 
 ```{r}
-# indicate the maximal effect srucutre (both fixend and rendom) that is motivated based on design & hypotheses
+# indicate the maximal effect srucutre (both fixed and random) that is motivated based on design & hypotheses
 f <- produced_label ~ test_partner*block * training_order * c_norm +
      (test_partner*produced_label*block * training_order | subjID) +
      (test_partner*produced_label*block * training_order  | target_label)
@@ -739,6 +740,7 @@ summary(m_acc)
 sink("output_stats/LEALCO-BEH2_acc_lmm.txt")
 print(summary(m_acc))
 sink()  # returns output to the console
+save_model_to_html(m_acc@model, 3 , 'LEALCO-BEH2_acc_lmm.html')
 
 ```
 
@@ -761,7 +763,7 @@ plot(residuals(m_acc))
 dev.off()
 ```
 
-### \>Post-hoc / marginal means for (Partner Type x Norm)
+### \> Post-hoc / marginal means for (Partner Type x Norm)
 
 Note, that Norms do not refer to the word that was *supposed* to be said 8aka the word matching the partner) but to the word that was actually said. Note also that Norms are NOt normally distributed: most of the norms are below 0.2.
 
@@ -1205,7 +1207,7 @@ dev.off()
 tt
 ```
 
-### \> Post-hoc / marginal means (Traqining Order x Naming Norms)
+### \> Post-hoc / marginal means (Traaining Order x Naming Norms)
 
 ```{r}
 # ========= LABEL A ========
@@ -1275,7 +1277,7 @@ dev.off()
 tt
 ```
 
-### \> Post-hoc / marginal means (Test Partner x Traqining Order x Naming Norms)
+### \> Post-hoc / marginal means (Test Partner x Training Order x Naming Norms)
 
 This is just to better understand the data, but it is not a follow up on any significant interaction.
 
@@ -1543,6 +1545,8 @@ summary(m_votINV)
 sink("output_stats/LEALCO-BEH2_votINV_lmm.txt")
 print(summary(m_votINV))
 sink()  # returns output to the console
+save_model_to_html(m_votINV@model, 6, 'LEALCO-BEH2_votINV_lmm.html')
+
 ```
 
 Make model sanity checks. Everything seems ok.

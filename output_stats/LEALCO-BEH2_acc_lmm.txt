@@ -1,14 +1,25 @@
 Generalized linear mixed model fit by maximum likelihood (Laplace Approximation)
-(p-values based on Wald z-scores) ['glmerMod']
+  (p-values based on Wald z-scores) [glmerMod]
  Family: binomial  ( logit )
-Formula: produced_label ~ 1 + test_partner + c_norm + test_partner:c_norm +      training_order + test_partner:training_order + block + training_order:block +      test_partner:block + test_partner:training_order:block +  
-    c_norm:block + c_norm:training_order + test_partner:c_norm:training_order +      c_norm:training_order:block + test_partner:c_norm:block +      test_partner:c_norm:training_order:block + (1 + test_partner +  
+Formula: produced_label ~ 1 + test_partner + c_norm + test_partner:c_norm +  
+    training_order + test_partner:training_order + block + training_order:block +  
+    test_partner:block + test_partner:training_order:block +  
+    c_norm:block + c_norm:training_order + test_partner:c_norm:training_order +  
+    c_norm:training_order:block + test_partner:c_norm:block +  
+    test_partner:c_norm:training_order:block + (1 + test_partner +  
     training_order + test_partner:training_order | target_label)
    Data: acc_binomial
-Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,      calc.derivs = TRUE, use.last.params = FALSE, checkControl = list(         check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",  
-        check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",          check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",          check.scaleX = "warning", check.formula.LHS = "stop"),  
-    checkConv = list(check.conv.grad = list(action = "warning",          tol = 0.002, relTol = NULL), check.conv.singular = list(         action = "message", tol = 1e-04), check.conv.hess = list( 
-        action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  "merControl"))
+Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,  
+    calc.derivs = TRUE, use.last.params = FALSE, checkControl = list( 
+        check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",  
+        check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",  
+        check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",  
+        check.scaleX = "warning", check.formula.LHS = "stop"),  
+    checkConv = list(check.conv.grad = list(action = "warning",  
+        tol = 0.002, relTol = NULL), check.conv.singular = list( 
+        action = "message", tol = 1e-04), check.conv.hess = list( 
+        action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  
+"merControl"))
 
      AIC      BIC   logLik deviance df.resid 
   1379.7   1519.7   -663.8   1327.7     1586 
@@ -26,22 +37,39 @@ Random effects:
 Number of obs: 1612, groups:  target_label, 140
 
 Fixed effects:
-                                            Estimate Std. Error  z value Pr(>|z|) Pr(>|t|)    
-(Intercept)                                 -1.28032    0.69477 -1.84279    0.065   0.0654 .  
-test_partner1                                4.72060    0.69938  6.74972    0.000 1.48e-11 ***
-c_norm                                       1.85961    1.10043  1.68989    0.091   0.0910 .  
-training_order1                             -2.56292    0.64577 -3.96879    0.000 7.22e-05 ***
-block1                                      -0.08068    0.09526 -0.84699    0.397   0.3970    
-test_partner1:c_norm                        -8.03592    1.12955 -7.11425    0.000 1.13e-12 ***
-test_partner1:training_order1                0.76722    0.67162  1.14235    0.253   0.2533    
-training_order1:block1                       0.10589    0.09537  1.11032    0.267   0.2669    
-test_partner1:block1                        -0.09201    0.09532 -0.96529    0.334   0.3344    
-c_norm:block1                                0.29506    0.39666  0.74386    0.457   0.4570    
-c_norm:training_order1                       5.26025    1.09348  4.81057    0.000 1.50e-06 ***
-test_partner1:training_order1:block1         0.09048    0.09526  0.94987    0.342   0.3422    
-test_partner1:c_norm:training_order1        -1.44046    1.08471 -1.32797    0.184   0.1842    
-c_norm:training_order1:block1               -0.27090    0.39683 -0.68266    0.495   0.4948    
-test_partner1:c_norm:block1                  0.20995    0.39669  0.52927    0.597   0.5966    
-test_partner1:c_norm:training_order1:block1 -0.28143    0.39667 -0.70949    0.478   0.4780    
+                                            Estimate Std. Error  z value Pr(>|z|)
+(Intercept)                                 -1.28032    0.69477 -1.84279    0.065
+test_partner1                                4.72060    0.69938  6.74972    0.000
+c_norm                                       1.85961    1.10043  1.68989    0.091
+training_order1                             -2.56292    0.64577 -3.96879    0.000
+block1                                      -0.08068    0.09526 -0.84699    0.397
+test_partner1:c_norm                        -8.03592    1.12955 -7.11425    0.000
+test_partner1:training_order1                0.76722    0.67162  1.14235    0.253
+training_order1:block1                       0.10589    0.09537  1.11032    0.267
+test_partner1:block1                        -0.09201    0.09532 -0.96529    0.334
+c_norm:block1                                0.29506    0.39666  0.74386    0.457
+c_norm:training_order1                       5.26025    1.09348  4.81057    0.000
+test_partner1:training_order1:block1         0.09048    0.09526  0.94987    0.342
+test_partner1:c_norm:training_order1        -1.44046    1.08471 -1.32797    0.184
+c_norm:training_order1:block1               -0.27090    0.39683 -0.68266    0.495
+test_partner1:c_norm:block1                  0.20995    0.39669  0.52927    0.597
+test_partner1:c_norm:training_order1:block1 -0.28143    0.39667 -0.70949    0.478
+                                            Pr(>|t|)    
+(Intercept)                                   0.0654 .  
+test_partner1                               1.48e-11 ***
+c_norm                                        0.0910 .  
+training_order1                             7.22e-05 ***
+block1                                        0.3970    
+test_partner1:c_norm                        1.13e-12 ***
+test_partner1:training_order1                 0.2533    
+training_order1:block1                        0.2669    
+test_partner1:block1                          0.3344    
+c_norm:block1                                 0.4570    
+c_norm:training_order1                      1.50e-06 ***
+test_partner1:training_order1:block1          0.3422    
+test_partner1:c_norm:training_order1          0.1842    
+c_norm:training_order1:block1                 0.4948    
+test_partner1:c_norm:block1                   0.5966    
+test_partner1:c_norm:training_order1:block1   0.4780    
 ---
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
