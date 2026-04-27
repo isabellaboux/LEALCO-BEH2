@@ -3,6 +3,7 @@ save_model_to_html <- function(model, decimals, filename) {
   # ---- label dictionary ----
   var_labels <- c(
     correct = "Label Maintenance",
+    VOTinv = "Naming Latency (inverted)",
     partner_type = "Partner Type",
     block = "Block",
     c_SUBTLEX_frequency_log = "Frequency (log)",

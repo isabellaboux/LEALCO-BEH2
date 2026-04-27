@@ -432,6 +432,40 @@ exclusion_acc <- c('202', '225', '223')
 exclusion_vot <- c('202', '225', '223')
 ```
 
+## Trial Overview
+
+Here, we generate some summary statistic about trial classification (after removing outliers).
+
+```{r}
+
+# select data (only on test items, but before filtering for invalid trials)
+data_overview <- data %>%
+  filter(type %in% c("2-label", "1-label")) 
+data_overview$error <- as_factor(data_overview$error)
+#data_overview$error <- droplevels(data_overview$error)
+
+# aggregate (within subject)
+overview_wSubj <- data_overview %>%
+  filter(!subjID %in% exclusion_acc) %>%
+  group_by(subjID, error) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  complete(error, fill = list(n = 0)) %>%
+  group_by(subjID) %>%
+  mutate(
+    perc = n / sum(n) * 100
+  ) %>%
+  ungroup()
+
+# aggregte (between subject)
+overview_bSubj <- overview_wSubj %>%
+  group_by(error) %>%
+  summarise(count_mean = mean(n), count_sd = sd(n), perc_mean = mean(perc), perc_sd = sd(perc))
+
+# save
+write.csv(overview_bSubj, "output_stats/LEALCO-BEH2_trial_overview.csv")
+
+```
+
 ## Sample Stats
 
 ```{r}
