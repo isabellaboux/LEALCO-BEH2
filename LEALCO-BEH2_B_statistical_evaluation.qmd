@@ -1559,6 +1559,8 @@ contrasts(votINV$training_order)
 # center continious covariates
 votINV <- votINV %>%
   mutate(c_norm = norm - mean(norm, na.rm=TRUE))
+
+votINV$VOTinv_fact <- votINV$VOTinv * 10000
 ```
 
 Try to find the maximally convergent model by using the *buildmer()* approach.
@@ -1566,7 +1568,7 @@ Try to find the maximally convergent model by using the *buildmer()* approach.
 ```{r}
 
 # indicate the maximal effect strucutre (both fixed and random) that is motivated based on design & hypotheses
-f <- VOTinv ~ test_partner*produced_label*block * training_order * c_norm +
+f <- VOTinv_fact ~ test_partner*produced_label*block * training_order * c_norm +
      (test_partner*produced_label*block  | subjID) +
      (test_partner*produced_label*block * training_order  | target_label)
 
@@ -1579,7 +1581,7 @@ summary(m_votINV)
 sink("output_stats/LEALCO-BEH2_votINV_lmm.txt")
 print(summary(m_votINV))
 sink()  # returns output to the console
-save_model_to_html(m_votINV@model, 6, 'LEALCO-BEH2_votINV_lmm.html')
+save_model_to_html(m_votINV@model, 3, 'LEALCO-BEH2_votINV_lmm.html')
 
 ```
 
