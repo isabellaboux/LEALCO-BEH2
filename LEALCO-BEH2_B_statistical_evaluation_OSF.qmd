@@ -2,15 +2,17 @@
 title: "B_merge"
 ---
 
-# LEALCO-BEH2: analyse data *from test task*
+# LEALCO-BEH2
 
 # Information
+
+### Goal
+
+Analyse data *from test task*.
 
 ### Inputs
 
 The output file is a large .csv table containing the entire data of the file in a long format. It puts together the PsychoPy input files, the demographics, the VOT files as well as the relevant information from the debriefing questionnaire.
-
-### 
 
 # Load packages
 
@@ -39,8 +41,8 @@ pal1 = c("#66A054", "#D4aa00", "#858585")
 Read files:
 
 -   data: file containing the main data
-
 -   norms: file (derived from the data file) containing naming norms based on untrained trials only
+-   demo: file containing demographic information
 
 ```{r}
 # ================ read files
@@ -49,7 +51,7 @@ norms <- read.csv('data/LEALCO-BEH2_test_merged_naming_norms.csv')
 demo <- read.csv('data/demographic/LEALCO-BEH2_demographics_data_test470046_2025-07-15_15-29.csv',  sep = ";", fileEncoding = "Latin1", check.names = F)
 ```
 
-Make certain variables into factors
+Clean-up variables names and type.
 
 ```{r}
 
@@ -123,7 +125,7 @@ data <- left_join(
 
 ## (1) Check general error pattern
 
-Here, the general error distribution (regardless of experimental condition) is assessed by subject. This can potentially constitute the basis for data exclusion.
+Here, the general error distribution (regardless of experimental condition) is assessed by subject.
 
 | Code    | Meaning                                     |
 |---------|---------------------------------------------|
@@ -177,14 +179,14 @@ write.csv(dummy, 'data/LEALCO-BEH2_test_anomalous_RTs.csv', row.names=FALSE, fil
 dummy <- data[is.na(data$VOT),]
 write.csv(dummy, 'data/LEALCO-BEH2_test_anomalousNA_RTs.csv', row.names=FALSE, fileEncoding = "UTF-8")
 
-# histogramm fo ronly correct responses
+# histogram for only correct responses
 hist(data$VOT[data$error == 'correct'], xlim=c(0, 1000), breaks = 1000)
 plot(density(data$VOT[data$error == 'correct'], na.rm = TRUE))
 ```
 
 ## (3) Transform non-normal variables
 
-After trying several normalization approaches, it appears that the **inverse** **normalization** is most appropriatel.
+After trying several normalization approaches, it appears that the **inverse** **normalization** is most appropriate.
 
 ```{r}
 
@@ -206,7 +208,7 @@ hist(data$VOTsqrt, breaks=500)
 
 ## (4) Are there anomalous subjects?
 
-Calculate descriptive across collapsed conditions. Note that no trials/subjects are excluded.
+Calculate descriptive across collapsed conditions.
 
 ```{r}
 data$is_correct <- 0
@@ -233,9 +235,7 @@ summary_vot_bSubj <- summary_vot_wSubj %>%
   summarise(grand_mean_VOT = mean(mean_VOT), sd=sd(mean_VOT), sem=(sd(mean_VOT)/sqrt((length(mean_VOT)))))
 ```
 
-# === 2-label items ===
-
-## Subject exclusion
+# Subject exclusion
 
 Select trained trials, with a focus on those that are valid, i.e. where no recording error occurred. We therefore exclude all trials coded as: (5) misarticulation, (6) other, (7) visual, (8) audio recording error (9) no response.
 
@@ -415,16 +415,16 @@ For the **(inverted)** **VOT** measure applying the following threshold results 
 
 -   **3 SD:** 15
 
-Subjects 202, 225, 223 are excluded because they did not fulfimm the inclusion criteria or mistakes occurred suding stimulu spresentation.
+Subjects 202, 225, 223 are excluded because they did not fulfill the inclusion criteria or mistakes occurred during stimulus presentation.
 
-We select the exclusion criteria of +/-2.5SD resulting in no exclusions..
+We select the exclusion criteria of +/-2.5SD resulting in no exclusions.
 
 ```{r}
 exclusion_acc <- c('202', '225', '223')
 exclusion_vot <- c('202', '225', '223')
 ```
 
-## Trial Overview
+# Trial Overview
 
 Here, we generate some summary statistic about trial classification (after removing outliers).
 
@@ -458,7 +458,7 @@ write.csv(overview_bSubj, "output_stats/LEALCO-BEH2_trial_overview.csv")
 
 ```
 
-## Sample Stats
+# Sample Stats
 
 ```{r}
 # sample ACC
@@ -490,9 +490,11 @@ write.csv(sample_ACC, "output_stats/LEALCO-BEH2_demographic_summary_ACCsample.cs
 write.csv(sample_VOTinv, "output_stats/LEALCO-BEH2_demographic_summary_VOTinvsample.csv")
 ```
 
-## Label Maintenance
+# Label Maintenance
 
-### By Subject (congruency)
+## Descriptive analysis
+
+### By Subject (Congruency)
 
 Here we just have a simple look at accuracy, that is we consider correct only those trials where the subject said *exactly* the word they were expected to say.
 
@@ -656,7 +658,7 @@ labels <- data.frame(
 )
 ```
 
-## By Subject (Partner x Label x Test Order)
+### By Subject (Partner x Label x Test Order)
 
 ```{r}
 # aggregte (within subject)
@@ -710,15 +712,13 @@ c
 
 ```
 
-### LMM (binomial)
+## LMM
 
-Here, we run a first model. Note that our dependent variable (the type of label produced by the subjects) is a categorical variable with 3 levels (label A, label B, other). LMMs are not naturally made to handle DVs with more than 2 levels (but see [here](https://stackoverflow.com/questions/76623653/mixed-effect-multinomial-logistic-regression-model-in-r-non-bayesian-approach) and [here](https://cran.r-project.org/web/packages/multpois/index.html) for possible solutions). For this reason, we run a first model where we "drop" the level "other".
+Note that our dependent variable (the type of label produced by the subjects) is a categorical variable with 3 levels (label A, label B, other). LMMs are not naturally made to handle DVs with more than 2 levels (but see [here](https://stackoverflow.com/questions/76623653/mixed-effect-multinomial-logistic-regression-model-in-r-non-bayesian-approach) and [here](https://cran.r-project.org/web/packages/multpois/index.html) for possible solutions). For this reason, we run a model where we "drop" the level "other".
 
 Prepare the ACC data for LMMs.
 
 ```{r}
-# for each trial, cretae new variable containing the perceived quality of teamwork, dependin gon the current partner (this just takes the correct value from the debfirefing questionnaire, depending on which partner the trial took place with)
-#data_trained$team  <- ifelse(data_trained$partner == 'A', data_trained$T101, #data_trained$T201)
 
 # select data
 acc_binomial <- data_2labels %>%
@@ -753,7 +753,7 @@ acc_binomial <- acc_binomial %>%
 Try to find the maximally convergent model by using the *buildmer()* approach.
 
 ```{r}
-# indicate the maximal effect srucutre (both fixed and random) that is motivated based on design & hypotheses
+# indicate the maximal effect structre (both fixed and random) that is motivated based on design & hypotheses
 f <- produced_label ~ test_partner*block * training_order * c_norm +
      (test_partner*produced_label*block * training_order | subjID) +
      (test_partner*produced_label*block * training_order  | target_label)
@@ -763,9 +763,12 @@ m_acc <- buildmer(f,family=binomial, data=acc_binomial,buildmerControl=buildmerC
           args=list(control=lmerControl(optimizer='bobyqa'))))
 summary(m_acc)
 
+# save to text
 sink("output_stats/LEALCO-BEH2_acc_lmm.txt")
 print(summary(m_acc))
-sink()  # returns output to the console
+sink()
+
+# save to html
 save_model_to_html(m_acc@model, 3 , 'LEALCO-BEH2_acc_lmm.html')
 
 ```
@@ -791,7 +794,7 @@ dev.off()
 
 ### \> Post-hoc / marginal means for (Partner Type x Norm)
 
-Note, that Norms do not refer to the word that was *supposed* to be said 8aka the word matching the partner) but to the word that was actually said. Note also that Norms are NOt normally distributed: most of the norms are below 0.2.
+Note, that Norms do not refer to the word that was *supposed* to be said (aka the word matching the partner) but to the word that was actually said. Note also that Norms are NOt normally distributed: most of the norms are below 0.2.
 
 What this analysis says is that some rare tangrams (regardless which partner they were assigned to) had one of the two labels with such high norms, that this norm prevailed over the partner manipulation. So the data on the right side of each graph (high naming norms) represents cases where participants stuck to that high norm label all the time,. In 50% of the cases the label matched the curren tpartner, but in 50% it mismatched, resulting in this 0% scored with large error bars.
 
@@ -863,523 +866,13 @@ tt <- ggplot(m_acc.mm_partner, aes(y=emmean_untrans, x=test_partner, group=produ
 ggsave("output_figures/LEALCO-BEH2_acc_binomial_lmm_marginal_labelall_partner_pointplot.pdf", width=4.5
        , height=3.5)
 tt
-
-# stacked bar plot (to be reworked)
-# tt <- ggplot(m_acc.mm_partner, aes(y=emmean_untrans, x=test_partner, group=test_partner, fill=produced_label)) +
-#   scale_colour_manual(values = pal1) +
-#   geom_bar(stat="identity", color="black") +
-#   geom_point(stat="identity", position=position_dodge(.9), size=3) +
-#   geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.9)) +
-#   labs(y="Label Maintenance\n(%)", x="Partner") +
-#   theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
-#   ylim(0,100) +
-#   scale_fill_manual(values = pal1)
-# tt
 ```
 
-### \> Post-hoc / marginal means (Test Partner x Primacy x Recency)
+# Naming Latencies (at correct trials)
 
-```{r}
-# # make post-hoc with no correction
-# m_acc.ph_none_partner <-emmeans(m_acc@model, ~ test_partner * training_order, adjust = "none")
-# m_acc.emm_none_partner <- as.data.frame(m_acc.ph_none_partner$contrasts)
-# write.csv(m_acc.emm_none_partner,"output_stats/LEALCO-BEH2_acc_ph_none_testpartner_x_order.csv", row.names = FALSE)
-# 
-# # extract and save marginal means
-# m_acc.mm_partner <- as.data.frame(m_acc.emm_none_partner$emmeans)
-# m_acc.mm_partner$emmean_untrans <- plogis(m_acc.mm_partner$emmean)
-# m_acc.mm_partner$asymp.LCL_untrans <- plogis(m_acc.mm_partner$asymp.LCL)
-# m_acc.mm_partner$asymp.UCL_untrans <- plogis(m_acc.mm_partner$asymp.UCL)
-# 
-# # save them
-# write.csv(m_acc.mm_partner,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_partner.csv", row.names = FALSE)
-# 
-# # visualize marginal means
-# #pdf("output_figures/LEALCO-BEH2_acc_lmm_marginal_partner_pointplot.pdf")
-# tt <- ggplot(m_acc.mm_partner, aes(y=emmean_untrans, x=test_partner, group=primacy      )) +
-#   scale_colour_manual(values = pal1) +
-#   geom_point(stat="identity", position=position_dodge(.9), size=3) +
-#   geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.9)) +
-#   labs(y="Production of label B (vs. A)\n(proportion)", x="Partner") +
-#   theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
-#   ylim(0,1) +
-#   facet_grid(recency ~ primacy)
-# tt
-# #dev.off()
-# #tt
-```
+## Descriptive analysis
 
-### LMM (pseudo-multinomial)
-
-The "binomial" approach has the advantage that is allows to directly tets the effect of partner on label_A and label_B which is our core researh question. However, the downside is tht it requires us to completely disregard the "other" responses. A work around is th transform our trinomial DV in three separat e DV which each will be modelleld separately.
-
-Label A and Label B: training_factor tropped from ther by subJect random factors
-
-Also, removing training_factor from the by item random structure "solves" the issue of overfitting (?).
-
-Label Other: c_norm dropped from the fixed structure
-
-```{r}
-# select data
-acc_multinomial <- data_2labels %>%
-  filter(!subjID %in%  exclusion_acc)
-
-# create dummy DVs for each of the levels of our DV
-acc_multinomial$dummy_label_A  <- ifelse(acc_multinomial$produced_label == 'label_A', 1, 0)
-acc_multinomial$dummy_label_B  <- ifelse(acc_multinomial$produced_label == 'label_B', 1, 0)   
-acc_multinomial$dummy_label_other  <- ifelse(acc_multinomial$produced_label == 'other', 1, 0)   
-
-
-acc_multinomial$dummy_label_A <- as_factor(acc_multinomial$dummy_label_A)
-acc_multinomial$dummy_label_B <- as_factor(acc_multinomial$dummy_label_B)
-acc_multinomial$dummy_label_other <- as_factor(acc_multinomial$dummy_label_other)
-
-# Set sum contrasts for all variables.
-contrasts(acc_multinomial$test_partner) <- contr.sum(2)
-contrasts(acc_multinomial$block)  <- contr.sum(2)
-contrasts(acc_multinomial$primacy)  <- contr.sum(2)
-contrasts(acc_multinomial$recency)  <- contr.sum(2)
-contrasts(acc_multinomial$training_order)  <- contr.sum(2)
-
-# check contrasts
-contrasts(acc_multinomial$test_partner)
-contrasts(acc_multinomial$block)
-contrasts(acc_multinomial$primacy)
-contrasts(acc_multinomial$recency)
-contrasts(acc_multinomial$training_order)
-
-# center continious covariates
-acc_multinomial <- acc_multinomial %>%
-  mutate(c_norm = norm - mean(norm, na.rm=TRUE))
-```
-
-```{r}
-
-# indicate the maximal effect structure (both fixed and random) that is motivated based on design & hypotheses
-f <- dummy_label_A ~ test_partner*block * c_norm * training_order+
-     (test_partner * block  | subjID) +
-     (test_partner * block * training_order | target_label)
-
-# select the maximal model that still converges
-m_acc_labelA <- buildmer(f,family=binomial, data=acc_multinomial,buildmerControl=buildmerControl(direction='order',
-          args=list(control=lmerControl(optimizer='bobyqa'))))
-summary(m_acc_labelA)
-
-sink("output_stats/LEALCO-BEH2_acc_labelA_lmm.txt")
-print(summary(m_acc_labelA))
-sink()  # returns output to the console
-```
-
-```{r}
-# indicate the maximal effect srucutre (both fixend and random) that is motivated based on design & hypotheses
-f <- dummy_label_B ~ test_partner*block * training_order * c_norm +
-     (test_partner*block  | subjID) +
-     (test_partner*block * training_order | target_label)
-
-# select the maximal model that still converges
-m_acc_labelB <- buildmer(f,family=binomial, data=acc_multinomial,buildmerControl=buildmerControl(direction='order',
-          args=list(control=lmerControl(optimizer='bobyqa'))))
-summary(m_acc_labelB)
-
-sink("output_stats/LEALCO-BEH2_acc_labelB_lmm.txt")
-print(summary(m_acc_labelB))
-sink()  # returns output to the console
-
-```
-
-```{r}
-# indicate the maximal effect srucutre (both fixend and random) that is motivated based on design & hypotheses
-f <- dummy_label_other ~ test_partner*block * training_order +
-     (test_partner*block | subjID) +
-     (test_partner*block * training_order  | target_label)
-
-# select the maximal model that still converges
-m_acc_labelother <- buildmer(f,family=binomial, data=acc_multinomial,buildmerControl=buildmerControl(direction='order',
-          args=list(control=lmerControl(optimizer='bobyqa'))))
-summary(m_acc_labelother)
-
-sink("output_stats/LEALCO-BEH2_acc_labelother_lmm.txt")
-print(summary(m_acc_labelother))
-sink()  # returns output to the console
-```
-
-### \> Post-hoc / marginal means (Test Partner)
-
-```{r}
-# ========= LABEL A ========
-
-# make post-hoc with no correction
-m_acc_labelA.emm_none_partner <-emmeans(m_acc_labelA@model, pairwise ~ test_partner, adjust = "none")
-m_acc_labelA.ph_none_partner <- as.data.frame(m_acc_labelA.emm_none_partner$contrasts)
-write.csv(m_acc_labelA.ph_none_partner,"output_stats/LEALCO-BEH2_acc_labelA_ph_none_testpartner.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelA.mm_partner <- as.data.frame(m_acc_labelA.emm_none_partner$emmeans)
-m_acc_labelA.mm_partner$emmean_untrans <- plogis(m_acc_labelA.mm_partner$emmean)
-m_acc_labelA.mm_partner$asymp.LCL_untrans <- plogis(m_acc_labelA.mm_partner$asymp.LCL)
-m_acc_labelA.mm_partner$asymp.UCL_untrans <- plogis(m_acc_labelA.mm_partner$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelA.mm_partner,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelA_partner.csv", row.names = FALSE)
-
-# ========= LABEL B ========
-
-# make post-hoc with no correction
-m_acc_labelB.emm_none_partner <-emmeans(m_acc_labelB@model, pairwise ~ test_partner, adjust = "none")
-m_acc_labelB.ph_none_partner <- as.data.frame(m_acc_labelB.emm_none_partner$contrasts)
-write.csv(m_acc_labelB.ph_none_partner,"output_stats/LEALCO-BEH2_acc_labelB_ph_none_testpartner.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelB.mm_partner <- as.data.frame(m_acc_labelB.emm_none_partner$emmeans)
-m_acc_labelB.mm_partner$emmean_untrans <- plogis(m_acc_labelB.mm_partner$emmean)
-m_acc_labelB.mm_partner$asymp.LCL_untrans <- plogis(m_acc_labelB.mm_partner$asymp.LCL)
-m_acc_labelB.mm_partner$asymp.UCL_untrans <- plogis(m_acc_labelB.mm_partner$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelB.mm_partner,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelB_partner.csv", row.names = FALSE)
-
-
-# ========= LABEL OTHER ========
-
-# make post-hoc with no correction
-m_acc_labelother.emm_none_partner <-emmeans(m_acc_labelother@model, pairwise ~ test_partner, adjust = "none")
-m_acc_labelother.ph_none_partner <- as.data.frame(m_acc_labelother.emm_none_partner$contrasts)
-write.csv(m_acc_labelother.ph_none_partner,"output_stats/LEALCO-BEH2_acc_labelother_ph_none_testpartner.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelother.mm_partner <- as.data.frame(m_acc_labelother.emm_none_partner$emmeans)
-m_acc_labelother.mm_partner$emmean_untrans <- plogis(m_acc_labelother.mm_partner$emmean)
-m_acc_labelother.mm_partner$asymp.LCL_untrans <- plogis(m_acc_labelother.mm_partner$asymp.LCL)
-m_acc_labelother.mm_partner$asymp.UCL_untrans <- plogis(m_acc_labelother.mm_partner$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelother.mm_partner,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelother_partner.csv", row.names = FALSE)
-
-# ======== visualize =========
-
-m_acc_labelA.mm_partner$produced_label <- 'label_A'
-m_acc_labelB.mm_partner$produced_label <- 'label_B'
-m_acc_labelother.mm_partner$produced_label <- 'other'
-
-m_acc_all.mm_partner <- rbind(m_acc_labelA.mm_partner, m_acc_labelB.mm_partner, m_acc_labelother.mm_partner)
-
-m_acc_all.mm_partner <- m_acc_all.mm_partner %>% 
-  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ "matched",
-                           test_partner == 'B' & produced_label == 'label_B' ~ "matched",
-                           test_partner == 'A' & produced_label == 'label_B' ~ "non-matched",
-                           test_partner == 'B' & produced_label == 'label_A' ~ "non-matched",
-                           produced_label == 'other' ~ 'other'))
-
-# visualize marginal means
-tt <- ggplot(m_acc_all.mm_partner, aes(y=emmean_untrans, x=test_partner, group=produced_label, col=produced_label)) +
-  scale_colour_manual(values = pal1) +
-  geom_point(stat="identity", position=position_dodge(0.5), size=3) +
-  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.5)) +
-  labs(y="Precedent Maintenance\n(proportion)", x="Partner") +
-  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
-  ylim(0,1) 
-ggsave("output_figures/LEALCO-BEH2_acc_lmm_marginal_labelall_partner_pointplot.pdf", width=4.5
-       , height=3.5)
-tt
-```
-
-### \> Post-hoc / marginal means (Training Order)
-
-```{r}
-# ========= LABEL A ========
-
-# make post-hoc with no correction
-m_acc_labelA.emm_none_trainingorder <-emmeans(m_acc_labelA@model, pairwise ~ training_order, adjust = "none")
-m_acc_labelA.ph_none_trainingorder <- as.data.frame(m_acc_labelA.emm_none_trainingorder$contrasts)
-write.csv(m_acc_labelA.ph_none_trainingorder,"output_stats/LEALCO-BEH2_acc_labelA_ph_none_trainingorder.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelA.mm_trainingorder <- as.data.frame(m_acc_labelA.emm_none_trainingorder$emmeans)
-m_acc_labelA.mm_trainingorder$emmean_untrans <- plogis(m_acc_labelA.mm_trainingorder$emmean)
-m_acc_labelA.mm_trainingorder$asymp.LCL_untrans <- plogis(m_acc_labelA.mm_trainingorder$asymp.LCL)
-m_acc_labelA.mm_trainingorder$asymp.UCL_untrans <- plogis(m_acc_labelA.mm_trainingorder$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelA.mm_trainingorder,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelA_trainingorder.csv", row.names = FALSE)
-
-# ========= LABEL B ========
-
-# make post-hoc with no correction
-m_acc_labelB.emm_none_trainingorder <-emmeans(m_acc_labelB@model, pairwise ~ training_order, adjust = "none")
-m_acc_labelB.ph_none_trainingorder <- as.data.frame(m_acc_labelB.emm_none_trainingorder$contrasts)
-write.csv(m_acc_labelB.ph_none_trainingorder,"output_stats/LEALCO-BEH2_acc_labelB_ph_none_trainingorder.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelB.mm_trainingorder <- as.data.frame(m_acc_labelB.emm_none_trainingorder$emmeans)
-m_acc_labelB.mm_trainingorder$emmean_untrans <- plogis(m_acc_labelB.mm_trainingorder$emmean)
-m_acc_labelB.mm_trainingorder$asymp.LCL_untrans <- plogis(m_acc_labelB.mm_trainingorder$asymp.LCL)
-m_acc_labelB.mm_trainingorder$asymp.UCL_untrans <- plogis(m_acc_labelB.mm_trainingorder$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelB.mm_trainingorder,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelB_trainingorder.csv", row.names = FALSE)
-
-# ========= LABEL OTHER ========
-
-# make post-hoc with no correction
-m_acc_labelother.emm_none_trainingorder <-emmeans(m_acc_labelother@model, pairwise ~ training_order, adjust = "none")
-m_acc_labelother.ph_none_trainingorder <- as.data.frame(m_acc_labelother.emm_none_trainingorder$contrasts)
-write.csv(m_acc_labelother.ph_none_trainingorder,"output_stats/LEALCO-BEH2_acc_labelother_ph_none_trainingorder.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelother.mm_trainingorder <- as.data.frame(m_acc_labelother.emm_none_trainingorder$emmeans)
-m_acc_labelother.mm_trainingorder$emmean_untrans <- plogis(m_acc_labelother.mm_trainingorder$emmean)
-m_acc_labelother.mm_trainingorder$asymp.LCL_untrans <- plogis(m_acc_labelother.mm_trainingorder$asymp.LCL)
-m_acc_labelother.mm_trainingorder$asymp.UCL_untrans <- plogis(m_acc_labelother.mm_trainingorder$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelother.mm_trainingorder,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelother_trainingorder.csv", row.names = FALSE)
-
-# ======== visualize =========
-
-m_acc_labelA.mm_trainingorder$produced_label <- 'label_A'
-m_acc_labelB.mm_trainingorder$produced_label <- 'label_B'
-m_acc_labelother.mm_trainingorder$produced_label <- 'other'
-
-m_acc_all.mm_trainingorder <- rbind(m_acc_labelA.mm_trainingorder, m_acc_labelB.mm_trainingorder, m_acc_labelother.mm_trainingorder)
-
-#m_acc_all.mm_trainingorder <- m_acc_all.mm_trainingorder %>% 
-#  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ #"matched",
-#                           test_partner == 'B' & produced_label == 'label_B' ~ #"matched",
-#                           test_partner == 'A' & produced_label == 'label_B' ~ #"non-matched",
-#                           test_partner == 'B' & produced_label == 'label_A' ~ #"non-matched",
-#                           produced_label == 'other' ~ 'other'))
-
-# visualize marginal means
-pdf("output_figures/LEALCO-BEH2_acc_lmm_marginal_labelall_trainingorder_pointplot.pdf")
-tt <- ggplot(m_acc_all.mm_trainingorder, aes(y=emmean_untrans, x=training_order, group=produced_label, col=produced_label)) +
-  scale_colour_manual(values = pal1) +
-  geom_point(stat="identity", position=position_dodge(0.5), size=3) +
-  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.5)) +
-  labs(y="Precedent maintenance\n(proportion)", x="Training Order") +
-  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
-  ylim(0,1) 
-tt
-dev.off()
-tt
-```
-
-### \> Post-hoc / marginal means (Test Partner x Naming Norms)
-
-```{r}
-# ========= LABEL A ========
-
-# make post-hoc with no correction
-m_acc_labelA.emm_none_partner_norm <-emmeans(m_acc_labelA@model, pairwise ~ c_norm * test_partner, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
-
-m_acc_labelA.ph_none_partner_norm <- as.data.frame(m_acc_labelA.emm_none_partner_norm$contrasts)
-write.csv(m_acc_labelA.ph_none_trainingorder_testpartner,"output_stats/LEALCO-BEH2_acc_labelA_ph_none_partner_norm.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelA.mm_partner_norm <- as.data.frame(m_acc_labelA.emm_none_partner_norm$emmeans)
-m_acc_labelA.mm_partner_norm$emmean_untrans <- plogis(m_acc_labelA.mm_partner_norm$emmean)
-m_acc_labelA.mm_partner_norm$asymp.LCL_untrans <- plogis(m_acc_labelA.mm_partner_norm$asymp.LCL)
-m_acc_labelA.mm_partner_norm$asymp.UCL_untrans <- plogis(m_acc_labelA.mm_partner_norm$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelA.mm_partner_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelA_partner_norm.csv", row.names = FALSE)
-
-# ========= LABEL B ========
-
-# make post-hoc with no correction
-m_acc_labelB.emm_none_partner_norm <-emmeans(m_acc_labelB@model, pairwise ~ c_norm * test_partner, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
-m_acc_labelB.ph_none_partner_norm <- as.data.frame(m_acc_labelB.emm_none_partner_norm$contrasts)
-write.csv(m_acc_labelB.ph_none_trainingorder_testpartner,"output_stats/LEALCO-BEH2_acc_labelB_ph_none_partner_norm.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelB.mm_partner_norm <- as.data.frame(m_acc_labelB.emm_none_partner_norm$emmeans)
-m_acc_labelB.mm_partner_norm$emmean_untrans <- plogis(m_acc_labelB.mm_partner_norm$emmean)
-m_acc_labelB.mm_partner_norm$asymp.LCL_untrans <- plogis(m_acc_labelB.mm_partner_norm$asymp.LCL)
-m_acc_labelB.mm_partner_norm$asymp.UCL_untrans <- plogis(m_acc_labelB.mm_partner_norm$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelB.mm_partner_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelB_partner_norm.csv", row.names = FALSE)
-
-# ========= LABEL OTHER ========
-# This we cannot do with the variable "Label Other" because c_norm was notint he model.
-
-# ======== visualize =========
-
-m_acc_labelA.mm_partner_norm$produced_label <- 'label_A'
-m_acc_labelB.mm_partner_norm$produced_label <- 'label_B'
-
-m_acc_labelall.mm_partner_norm <- rbind(m_acc_labelA.mm_partner_norm, m_acc_labelB.mm_partner_norm)
-
-m_acc_labelall.mm_partner_norm$norm <- m_acc_labelall.mm_partner_norm$c_norm + mean(acc_multinomial$norm , na.rm=TRUE)
-
-#m_acc_all.mm_trainingorder <- m_acc_all.mm_trainingorder %>% 
-#  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ #"matched",
-#                           test_partner == 'B' & produced_label == 'label_B' ~ #"matched",
-#                           test_partner == 'A' & produced_label == 'label_B' ~ #"non-matched",
-#                           test_partner == 'B' & produced_label == 'label_A' ~ #"non-matched",
-#                           produced_label == 'other' ~ 'other'))
-
-# visualize marginal means
-pdf("output_figures/LEALCO-BEH2_acc_lmm_marginal_labelall_partner_norm_pointplot.pdf")
-tt <- ggplot(m_acc_labelall.mm_partner_norm, aes(y=emmean_untrans, x=norm, group=produced_label, col=produced_label)) +
-  scale_colour_manual(values = pal1) +
-  geom_point(stat="identity", position=position_dodge(0.05), size=3) +
-  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.1, position=position_dodge(.05)) +
-  labs(y="Precedent maintenance\n(proportion)", x="Naming Norms") +
-  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
-  ylim(0,1) +
-  facet_wrap(~test_partner)
-tt
-dev.off()
-tt
-```
-
-### \> Post-hoc / marginal means (Traaining Order x Naming Norms)
-
-```{r}
-# ========= LABEL A ========
-
-# make post-hoc with no correction
-m_acc_labelA.emm_none_trainingorder_norm <-emmeans(m_acc_labelA@model, pairwise ~ c_norm * training_order, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
-
-m_acc_labelA.ph_none_trainingorder_norm <- as.data.frame(m_acc_labelA.emm_none_trainingorder_norm$contrasts)
-write.csv(m_acc_labelA.ph_none_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_labelA_ph_none_trainingorder_norm.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelA.mm_trainingorder_norm <- as.data.frame(m_acc_labelA.emm_none_trainingorder_norm$emmeans)
-m_acc_labelA.mm_trainingorder_norm$emmean_untrans <- plogis(m_acc_labelA.mm_trainingorder_norm$emmean)
-m_acc_labelA.mm_trainingorder_norm$asymp.LCL_untrans <- plogis(m_acc_labelA.mm_trainingorder_norm$asymp.LCL)
-m_acc_labelA.mm_trainingorder_norm$asymp.UCL_untrans <- plogis(m_acc_labelA.mm_trainingorder_norm$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelA.mm_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelA_trainingorder_norm.csv", row.names = FALSE)
-
-# ========= LABEL B ========
-
-# make post-hoc with no correction
-m_acc_labelB.emm_none_trainingorder_norm <-emmeans(m_acc_labelB@model, pairwise ~ c_norm * training_order, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
-m_acc_labelB.ph_none_trainingorder_norm <- as.data.frame(m_acc_labelB.emm_none_trainingorder_norm$contrasts)
-write.csv(m_acc_labelB.ph_none_trainingorder_testpartner,"output_stats/LEALCO-BEH2_acc_labelB_ph_none_trainingorder_norm.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelB.mm_trainingorder_norm <- as.data.frame(m_acc_labelB.emm_none_trainingorder_norm$emmeans)
-m_acc_labelB.mm_trainingorder_norm$emmean_untrans <- plogis(m_acc_labelB.mm_trainingorder_norm$emmean)
-m_acc_labelB.mm_trainingorder_norm$asymp.LCL_untrans <- plogis(m_acc_labelB.mm_trainingorder_norm$asymp.LCL)
-m_acc_labelB.mm_trainingorder_norm$asymp.UCL_untrans <- plogis(m_acc_labelB.mm_trainingorder_norm$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelB.mm_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelB_trainingorder_norm.csv", row.names = FALSE)
-
-# ========= LABEL OTHER ========
-# This we cannot do with the variable "Label Other" because c_norm was notint he model.
-
-# ======== visualize =========
-
-m_acc_labelA.mm_trainingorder_norm$produced_label <- 'label_A'
-m_acc_labelB.mm_trainingorder_norm$produced_label <- 'label_B'
-
-m_acc_labelall.mm_trainingorder_norm <- rbind(m_acc_labelA.mm_trainingorder_norm, m_acc_labelB.mm_trainingorder_norm)
-
-m_acc_labelall.mm_trainingorder_norm$norm <- m_acc_labelall.mm_trainingorder_norm$c_norm + mean(acc_multinomial$norm , na.rm=TRUE)
-
-#m_acc_all.mm_trainingorder <- m_acc_all.mm_trainingorder %>% 
-#  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ #"matched",
-#                           test_partner == 'B' & produced_label == 'label_B' ~ #"matched",
-#                           test_partner == 'A' & produced_label == 'label_B' ~ #"non-matched",
-#                           test_partner == 'B' & produced_label == 'label_A' ~ #"non-matched",
-#                           produced_label == 'other' ~ 'other'))
-
-# visualize marginal means
-pdf("output_figures/LEALCO-BEH2_acc_lmm_marginal_labelall_trainingorder_norm_pointplot.pdf")
-tt <- ggplot(m_acc_labelall.mm_trainingorder_norm, aes(y=emmean_untrans, x=norm, group=produced_label, col=produced_label)) +
-  scale_colour_manual(values = pal1) +
-  geom_point(stat="identity", position=position_dodge(0.05), size=3) +
-  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.1, position=position_dodge(.05)) +
-  labs(y="Precedent maintenance\n(proportion)", x="Naming Norms") +
-  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
-  ylim(0,1) +
-  facet_wrap(~training_order)
-tt
-dev.off()
-tt
-```
-
-### \> Post-hoc / marginal means (Test Partner x Training Order x Naming Norms)
-
-This is just to better understand the data, but it is not a follow up on any significant interaction.
-
-```{r}
-# ========= LABEL A ========
-
-# make post-hoc with no correction
-m_acc_labelA.emm_none_partner_trainingorder_norm <-emmeans(m_acc_labelA@model, pairwise ~ c_norm * training_order * test_partner, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
-
-m_acc_labelA.ph_none_partner_trainingorder_norm <- as.data.frame(m_acc_labelA.emm_none_partner_trainingorder_norm$contrasts)
-write.csv(m_acc_labelA.ph_none_partner_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_labelA_ph_none__partner_trainingorder_norm.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelA.mm__partner_trainingorder_norm <- as.data.frame(m_acc_labelA.emm_none_partner_trainingorder_norm$emmeans)
-m_acc_labelA.mm__partner_trainingorder_norm$emmean_untrans <- plogis(m_acc_labelA.mm__partner_trainingorder_norm$emmean)
-m_acc_labelA.mm__partner_trainingorder_norm$asymp.LCL_untrans <- plogis(m_acc_labelA.mm__partner_trainingorder_norm$asymp.LCL)
-m_acc_labelA.mm__partner_trainingorder_norm$asymp.UCL_untrans <- plogis(m_acc_labelA.mm__partner_trainingorder_norm$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelA.mm__partner_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelA__partner_trainingorder_norm.csv", row.names = FALSE)
-
-# ========= LABEL B ========
-
-
-# make post-hoc with no correction
-m_acc_labelB.emm_none_partner_trainingorder_norm <-emmeans(m_acc_labelB@model, pairwise ~ c_norm * training_order * test_partner, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
-
-m_acc_labelB.ph_none_partner_trainingorder_norm <- as.data.frame(m_acc_labelA.emm_none_partner_trainingorder_norm$contrasts)
-write.csv(m_acc_labelB.ph_none_partner_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_labelB_ph_none__partner_trainingorder_norm.csv", row.names = FALSE)
-
-# extract and save marginal means
-m_acc_labelB.mm__partner_trainingorder_norm <- as.data.frame(m_acc_labelB.emm_none_partner_trainingorder_norm$emmeans)
-m_acc_labelB.mm__partner_trainingorder_norm$emmean_untrans <- plogis(m_acc_labelB.mm__partner_trainingorder_norm$emmean)
-m_acc_labelB.mm__partner_trainingorder_norm$asymp.LCL_untrans <- plogis(m_acc_labelB.mm__partner_trainingorder_norm$asymp.LCL)
-m_acc_labelB.mm__partner_trainingorder_norm$asymp.UCL_untrans <- plogis(m_acc_labelB.mm__partner_trainingorder_norm$asymp.UCL)
-
-# save them
-write.csv(m_acc_labelB.mm__partner_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelB__partner_trainingorder_norm.csv", row.names = FALSE)
-
-# ========= LABEL OTHER ========
-# This we cannot do with the variable "Label Other" because c_norm was notint he model.
-
-# ======== visualize =========
-
-m_acc_labelA.mm__partner_trainingorder_norm$produced_label <- 'label_A'
-m_acc_labelB.mm__partner_trainingorder_norm$produced_label <- 'label_B'
-
-m_acc_labelall.mm_partner_trainingorder_norm <- rbind(m_acc_labelA.mm__partner_trainingorder_norm, m_acc_labelB.mm__partner_trainingorder_norm)
-
-m_acc_labelall.mm_partner_trainingorder_norm$norm <- m_acc_labelall.mm_partner_trainingorder_norm$c_norm + mean(acc_multinomial$norm , na.rm=TRUE)
-
-#m_acc_all.mm_trainingorder <- m_acc_all.mm_trainingorder %>% 
-#  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ #"matched",
-#                           test_partner == 'B' & produced_label == 'label_B' ~ #"matched",
-#                           test_partner == 'A' & produced_label == 'label_B' ~ #"non-matched",
-#                           test_partner == 'B' & produced_label == 'label_A' ~ #"non-matched",
-#                           produced_label == 'other' ~ 'other'))
-
-# visualize marginal means
-pdf("output_figures/LEALCO-BEH2_acc_lmm_marginal_labelall_partner_trainingorder_norm_pointplot.pdf")
-tt <- ggplot(m_acc_labelall.mm_partner_trainingorder_norm, aes(y=emmean_untrans, x=norm, group=produced_label, col=produced_label)) +
-  scale_colour_manual(values = pal1) +
-  geom_point(stat="identity", position=position_dodge(0.05), size=3) +
-  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.1, position=position_dodge(.05)) +
-  labs(y="Precedent maintenance\n(proportion)", x="Naming Norms") +
-  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
-  ylim(0,1) +
-  facet_wrap(~training_order~test_partner)
-tt
-dev.off()
-tt
-```
-
-## Naming latencies at correct trials
-
-### By Subject (congruency)
+### By Subject (Congruency)
 
 Here we just have a simple look at naming latencies, while considering only trials that are correct. In a first moment, we just examine naming latencies in their native format, that is without any type of normalization for approximating normality. Note that the data is right-skewed, expected for latency data.
 
@@ -1518,7 +1011,7 @@ dev.off()
 tt
 ```
 
-### LMM
+## LMM
 
 Prepare the VOT data for LMMs. Note that we will be running he model on inverted naming latency (1/naming latency). This results in the magnitude of the datapoints being inverted. The estimates of the models have to be read accordingly.
 
@@ -1548,7 +1041,7 @@ contrasts(votINV$primacy)
 contrasts(votINV$recency)
 contrasts(votINV$training_order)
 
-# center continious covariates
+# center continuous covariates
 votINV <- votINV %>%
   mutate(c_norm = norm - mean(norm, na.rm=TRUE))
 
@@ -1596,7 +1089,7 @@ plot(residuals(m_votINV))
 dev.off()
 ```
 
-### Post-hoc / marginal means (Block)
+### \> Post-hoc / marginal means (Block)
 
 ```{r}
 
@@ -1626,7 +1119,7 @@ dev.off()
 tt
 ```
 
-### Post-hoc / marginal means for (Partner Type x Norm)
+### \> Post-hoc / marginal means for (Partner Type x Norm)
 
 ```{r}
 # make post-hoc with tukey correction
@@ -1688,9 +1181,7 @@ ggplot(m_votINV.emm_none_partner_x_norm, aes(x=c_norm, y=yvar, color=training_or
 dev.off()
 ```
 
-### Post-hoc / marginal means for (Partner Type x Label)
-
-Compute post-hoc tests and export.
+### \> Post-hoc / marginal means for (Partner Type x Label)
 
 ```{r}
 # make post-hoc with tukey correction
@@ -1732,8 +1223,6 @@ tt
 ## Entrainment analysis
 
 The following analysis examines the reaction between Label Maintenance and (inverted) Naming Latency. This is interesting because there could be a speed accuracy trade-off (i.e. entraining with the partner is cognitively costly) or on the contrary it is possible that entraining with the partner is in fact facilitatory.
-
-#### Version 1: based on inverted naming latencies
 
 ```{r}
 # aggregte accuracy (within subject)
@@ -1789,30 +1278,6 @@ ggplot(entrainment_data, aes(x=entrainment_VOTinv, y=entrainment_ACC)) +
   ylab('Partner-Specific Label Maintenance\n(matching vs. mismatching)') +
   theme(axis.text=element_text(size=12), axis.title=element_text(size=12))
 ggsave("output_figures/LEALCO-BEH2_entrainment_correlation_VOTinv.pdf",  width=6, height=3.5)
-
-
-```
-
-```{r}
-
-# scatterplot
-ggplot(entrainment_data, aes(x=entrainment_VOT, y=entrainment_ACC)) +
-  geom_point() +
-  stat_smooth(method=lm, fullrange=TRUE, color = 'black') + 
-  geom_hline(yintercept=0, linetype="dotted") +
-  geom_vline(xintercept=0, linetype="dotted") +
-  xlim(-2600, 2600) +
-  ylim(-1.5, 1.5) + 
-  xlab('Entrainment NL\n(matching vs. mismatching)') +
-  ylab('Entrainment LM\n(matching vs. mismatching)') +
-  theme(axis.text=element_text(size=12), axis.title=element_text(size=12))
-ggsave("output_figures/LEALCO-BEH2_entrainment_correlation_VOTraw.pdf",  width=6, height=3.5)
-
-# correlation
-corr <- cor.test(entrainment_data$entrainment_ACC, entrainment_data$entrainment_VOTinv)
-sink('output_stats/LEALCO-BEH2_entrainment_correlation_VOTraw.txt')
-print(corr)
-sink()
 ```
 
 # Session Information
