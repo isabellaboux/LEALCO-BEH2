@@ -289,7 +289,7 @@ ggplot(data_2labels_sum_wSubj, aes(x=mean)) +
  ggtitle("Subject outliers based on accuracy")
 dev.off()
 
-# select outliers on the basis of +/-2SD
+# select outliers on the basis of +/-2.5 SD
 data_2labels_sum_wSubj[data_2labels_sum_wSubj$mean < minus25SD |
                        data_2labels_sum_wSubj$mean > plus25SD, ]
 ```
@@ -338,7 +338,7 @@ ggplot(data_2labels_sum_wSubj_vot, aes(x=mean)) +
   ggtitle("Subject outliers based on naming latency (native)")
 dev.off()
 
-# select subjects with thada 
+# select outliers on the basis of +/-2.5 SD
 data_2labels_sum_wSubj_vot[data_2labels_sum_wSubj_vot$mean < minus25SD |
                        data_2labels_sum_wSubj_vot$mean > plus25SD, ]
 ```
@@ -386,7 +386,7 @@ ggplot(data_2labels_sum_wSubj_votINV, aes(x=mean)) +
   ggtitle("Subject outliers based on naming latency (inverted)")
 dev.off()
 
-# select subjects with thada 
+# select outliers on the basis of +/-2.5 SD
 data_2labels_sum_wSubj_votINV[data_2labels_sum_wSubj_votINV$mean < minus25SD |
                        data_2labels_sum_wSubj_votINV$mean > plus25SD, ]
 ```
