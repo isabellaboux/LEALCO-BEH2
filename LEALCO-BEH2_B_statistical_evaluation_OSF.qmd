@@ -1,0 +1,1822 @@
+---
+title: "B_merge"
+---
+
+# LEALCO-BEH2: analyse data *from test task*
+
+# Information
+
+### Inputs
+
+The output file is a large .csv table containing the entire data of the file in a long format. It puts together the PsychoPy input files, the demographics, the VOT files as well as the relevant information from the debriefing questionnaire.
+
+### 
+
+# Load packages
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(lme4)
+library(buildmer)
+library(emmeans)
+library(lmerTest)
+library(gridExtra)
+source('R/utils.R')
+```
+
+# Set some custom settings
+
+```{r}
+
+theme_set(theme_bw())
+pal3 = c("#F5793A", "#4f5dab", "#858585")
+pal1 = c("#66A054", "#D4aa00", "#858585")
+```
+
+# Read files
+
+Read files:
+
+-   data: file containing the main data
+
+-   norms: file (derived from the data file) containing naming norms based on untrained trials only
+
+```{r}
+# ================ read files
+data <- read.csv('data/LEALCO-BEH2_test_merged_data.csv')
+norms <- read.csv('data/LEALCO-BEH2_test_merged_naming_norms.csv')
+demo <- read.csv('data/demographic/LEALCO-BEH2_demographics_data_test470046_2025-07-15_15-29.csv',  sep = ";", fileEncoding = "Latin1", check.names = F)
+```
+
+Make certain variables into factors
+
+```{r}
+
+# change name for some variable levels
+demo$gender[demo$gender == 1] <- 'male' 
+demo$gender[demo$gender == 2] <- 'female' 
+demo$gender[demo$gender == 4] <- 'other' 
+demo$gender[demo$gender == 5] <- 'no_answer' 
+
+# make factors
+data$subjID <- as_factor(data$subjID)
+data$partner_order <- as_factor(data$partner_order)
+data$block <- as_factor(data$block)
+data$partner <- as_factor(data$partner)
+data$class <- as_factor(data$class)
+data$type <- as_factor(data$type)
+data$test_partner <- as_factor(data$test_partner)
+data$target_stimID <- as_factor(data$target_stimID)
+data$correct <- as_factor(data$correct)
+data$error <- as_factor(data$error)
+data$target_label <- as_factor(data$target_label)
+data$alternative_label <- as_factor(data$alternative_label)
+data$produced_label <- as_factor(data$produced_label)
+
+# relevel
+levels(data$correct) <- c("other", "matching",  "non-matching")
+data$correct <- relevel(data$correct,  'non-matching')
+data$correct <- relevel(data$correct,  'matching')
+
+# relevel
+data$produced_label <- relevel(data$produced_label,  'label_B')
+data$produced_label <- relevel(data$produced_label,  'label_A')
+
+# create some new variables for primacy and recency
+data <- data %>% 
+  mutate(primacy = case_when(partner_order == 'A - B / A - B' ~ "A",
+                       partner_order == 'A - B / B - A' ~ "A",
+                       partner_order == 'B - A / B - A' ~ "B",
+                       partner_order == 'B - A / A - B' ~ "B"))
+data$primacy <- as_factor(data$primacy)
+
+data <- data %>% 
+  mutate(recency = case_when(partner_order == 'A - B / A - B' ~ "B",
+                       partner_order == 'A - B / B - A' ~ "B",
+                       partner_order == 'B - A / B - A' ~ "A",
+                       partner_order == 'B - A / A - B' ~ "A"))
+data$recency <- as_factor(data$recency)
+
+data <- data %>%
+  mutate(training_order = case_when(partner_order == 'A - B / A - B' ~ "AB",
+                       partner_order == 'A - B / B - A' ~ "AB",
+                       partner_order == 'B - A / B - A' ~ "BA",
+                       partner_order == 'B - A / A - B' ~ "BA"))
+data$training_order <- as_factor(data$training_order)
+
+# add naming norms for the label that was actually produced by the subject
+data <- data %>%
+  mutate(exact_produced_label = case_when(produced_label == 'label_A' &  test_partner == 'A' ~ target_label,
+                                          produced_label == 'label_A' &  test_partner == 'B' ~ alternative_label,
+                                          produced_label == 'label_B' &  test_partner == 'B' ~ target_label,
+                                          produced_label == 'label_B' &  test_partner == 'A' ~ alternative_label,
+                                          produced_label == 'other' ~ 'other'))
+data <- left_join(
+  data,
+  norms[norms$name != 'other',],
+  by = c('exact_produced_label'))
+
+```
+
+# Preliminary data sanity checks
+
+## (1) Check general error pattern
+
+Here, the general error distribution (regardless of experimental condition) is assessed by subject. This can potentially constitute the basis for data exclusion.
+
+| Code    | Meaning                                     |
+|---------|---------------------------------------------|
+| correct | said exactly what they were expected to say |
+| t1      | compounded version of target                |
+| a1      | compounded version of alternate             |
+| t2      | semantically related to target              |
+| a2      | semantically related to alternate           |
+| t3      | phonologically related to target            |
+| a3      | phonologically related to alternate         |
+| 4       | unrelated                                   |
+| t5      | misarticulation of target                   |
+| a5      | misarticulation of alternate                |
+| 6       | other                                       |
+| 7       | visual                                      |
+| 8       | audio recording error                       |
+| 9       | no response                                 |
+
+: Table 1: Key for interpreting the "Error"" variable
+
+```{r}
+# plot accuracy counts by subject
+pdf("output_figures/LEALCO-BEH2_raw screening.pdf")
+p <- ggplot(data, aes(x=error, fill=error)) + 
+  geom_bar() +
+  facet_wrap(~subjID)
+p
+dev.off()
+p
+
+# count how many trials of each type
+data %>% count(error) 
+
+```
+
+## (2) Check general RT pattern
+
+Let's screen for anomalous RTs in the data files, which could have originated from inaccuracies in data reprocessing. It appears that no anomalies are (any longer) present in the data.
+
+```{r}
+
+# overall density plot
+plot(density(data$VOT, na.rm = TRUE))
+
+# zooming into the left part of the histogramm to spot anomalous VOTs (<400 ms), and export them.
+hist(data$VOT, xlim=c(0, 1000), breaks = 1000)
+dummy <- data[data$VOT < 400,]
+write.csv(dummy, 'data/LEALCO-BEH2_test_anomalous_RTs.csv', row.names=FALSE, fileEncoding = "UTF-8")
+
+# Look for NA values and export them.
+dummy <- data[is.na(data$VOT),]
+write.csv(dummy, 'data/LEALCO-BEH2_test_anomalousNA_RTs.csv', row.names=FALSE, fileEncoding = "UTF-8")
+
+# histogramm fo ronly correct responses
+hist(data$VOT[data$error == 'correct'], xlim=c(0, 1000), breaks = 1000)
+plot(density(data$VOT[data$error == 'correct'], na.rm = TRUE))
+```
+
+## (3) Transform non-normal variables
+
+After trying several normalization approaches, it appears that the **inverse** **normalization** is most appropriatel.
+
+```{r}
+
+# plot native VOTs
+hist(data$VOT, breaks=500)
+
+# plot log10 notmalized VOTs
+data$VOTlog10 <- log10(data$VOT)
+hist(data$VOTlog10, breaks=500)
+
+# plot inverse normalized VOTs
+data$VOTinv <- 1/data$VOT
+hist(data$VOTinv, breaks=500)
+
+# plot square root normalized VOTs
+data$VOTsqrt <- sqrt(data$VOT)
+hist(data$VOTsqrt, breaks=500)
+```
+
+## (4) Are there anomalous subjects?
+
+Calculate descriptive across collapsed conditions. Note that no trials/subjects are excluded.
+
+```{r}
+data$is_correct <- 0
+data$is_correct[data$error == 'correct'] <-1
+
+
+# descritpives of accuracy: within-subjects
+summary_acc_wSubj <- data %>%
+  group_by(subjID) %>%
+  summarise(mean_ACC = mean(is_correct), sd=sd(is_correct), sem=(sd(is_correct)/sqrt((length(is_correct)))))
+
+# descritpives of accuracy: between-subjects
+summary_acc_bSubj <- summary_acc_wSubj %>%
+  summarise(grand_mean_ACC = mean(mean_ACC), sd=sd(mean_ACC), sem=(sd(mean_ACC)/sqrt((length(mean_ACC)))))
+
+# descritpives of vot: within-subjects
+summary_vot_wSubj <- data %>%
+  filter(is_correct == 1) %>%
+  group_by(subjID) %>%
+  summarise(mean_VOT = mean(VOT), sd=sd(VOT), sem=(sd(VOT)/sqrt((length(VOT)))))
+
+# descritpives of vot: between-subjects
+summary_vot_bSubj <- summary_vot_wSubj %>%
+  summarise(grand_mean_VOT = mean(mean_VOT), sd=sd(mean_VOT), sem=(sd(mean_VOT)/sqrt((length(mean_VOT)))))
+```
+
+# === 2-label items ===
+
+## Subject exclusion
+
+Select trained trials, with a focus on those that are valid, i.e. where no recording error occurred. We therefore exclude all trials coded as: (5) misarticulation, (6) other, (7) visual, (8) audio recording error (9) no response.
+
+```{r}
+data_2labels <- data %>%
+  filter(type == '2-label') %>%
+  filter(error %in% c('correct', 't1', 'a1', 't2', 'a2', 't3', 'a3', '4'))
+```
+
+Determine if any subjects need to be excluded based on data distribution for **accuracy** (collapsing all test conditions).
+
+```{r}
+
+# aggregate within subject
+data_2labels_sum_wSubj <- data_2labels %>%
+  group_by(subjID) %>%
+  summarise(mean = mean(is_correct), sem=(sd(is_correct)/sqrt((length(is_correct)))), sd=sd(is_correct))
+
+# aggregate between subjects
+data_2labels_sum_bSubj <- data_2labels_sum_wSubj %>%
+  summarise(grandMean = mean(mean), sem=(sd(mean)/sqrt((length(mean)))), sd=sd(mean))
+
+# calculate SD intervals
+plus2SD = data_2labels_sum_bSubj$grandMean + data_2labels_sum_bSubj$sd * 2
+minus2SD = data_2labels_sum_bSubj$grandMean - data_2labels_sum_bSubj$sd * 2
+plus25SD = data_2labels_sum_bSubj$grandMean + data_2labels_sum_bSubj$sd * 2.5
+minus25SD = data_2labels_sum_bSubj$grandMean - data_2labels_sum_bSubj$sd * 2.5
+plus3SD = data_2labels_sum_bSubj$grandMean + data_2labels_sum_bSubj$sd * 3
+minus3SD = data_2labels_sum_bSubj$grandMean - data_2labels_sum_bSubj$sd * 3
+
+# plot
+pdf("output_figures/LEALCO-BEH2_acc_outliers.pdf")
+ggplot(data_2labels_sum_wSubj, aes(x=mean)) +
+  geom_dotplot() +
+  geom_density(alpha=.2, fill="black") +
+  geom_vline(aes(xintercept=data_2labels_sum_bSubj$grandMean)) +
+  geom_vline(aes(xintercept=plus2SD), linetype="dashed") +
+  geom_vline(aes(xintercept=minus2SD), linetype="dashed") +
+  geom_vline(aes(xintercept=plus25SD), linetype="dashed") +
+  geom_vline(aes(xintercept=minus25SD), linetype="dashed") +
+  geom_vline(aes(xintercept=plus3SD), linetype="dashed") +
+  geom_vline(aes(xintercept=minus3SD), linetype="dashed") +
+  annotate("text", x=plus2SD, y=3, label="+2SD", angle = 30) +
+  annotate("text", x=minus2SD, y=3, label="-2SD", angle = 30) +
+  annotate("text", x=plus25SD, y=3, label="+2.5SD", angle = 30) +
+  annotate("text", x=minus25SD, y=3, label="-2.5SD", angle = 30) +
+  annotate("text", x=plus3SD, y=3, label="+3SD", angle = 30) +
+  annotate("text", x=minus3SD, y=3, label="-3SD", angle = 30) +
+  annotate("text", x=data_2labels_sum_bSubj$grandMean, y=3, label="mean", angle = 30) +
+  xlim(0,1) +
+ ggtitle("Subject outliers based on accuracy")
+dev.off()
+
+# select outliers on the basis of +/-2SD
+data_2labels_sum_wSubj[data_2labels_sum_wSubj$mean < minus25SD |
+                       data_2labels_sum_wSubj$mean > plus25SD, ]
+```
+
+Do same thing with **naming latencies**.
+
+```{r}
+
+# aggregate within subject
+data_2labels_sum_wSubj_vot <- data_2labels %>%
+  group_by(subjID) %>%
+  summarise(mean = mean(VOT), sem=(sd(VOT)/sqrt((length(VOT)))), sd=sd(VOT))
+
+# aggregate between subjects
+data_2labels_sum_bSubj_vot <- data_2labels_sum_wSubj_vot %>%
+  summarise(grandMean = mean(mean), sem=(sd(mean)/sqrt((length(mean)))), sd=sd(mean))
+
+# calculate SD intervals
+plus2SD = data_2labels_sum_bSubj_vot$grandMean + data_2labels_sum_bSubj_vot$sd * 2
+minus2SD = data_2labels_sum_bSubj_vot$grandMean - data_2labels_sum_bSubj_vot$sd * 2
+plus25SD = data_2labels_sum_bSubj_vot$grandMean + data_2labels_sum_bSubj_vot$sd * 2.5
+minus25SD = data_2labels_sum_bSubj_vot$grandMean - data_2labels_sum_bSubj_vot$sd * 2.5
+plus3SD = data_2labels_sum_bSubj_vot$grandMean + data_2labels_sum_bSubj_vot$sd * 3
+minus3SD = data_2labels_sum_bSubj_vot$grandMean - data_2labels_sum_bSubj_vot$sd * 3
+
+# plot
+pdf("output_figures/LEALCO-BEH2_vot_outliers.pdf")
+ggplot(data_2labels_sum_wSubj_vot, aes(x=mean)) +
+  geom_dotplot() +
+  geom_density(alpha=.2, fill="black") +
+  geom_vline(aes(xintercept=data_2labels_sum_bSubj_vot$grandMean)) +
+  geom_vline(aes(xintercept=plus2SD), linetype="dashed") +
+  geom_vline(aes(xintercept=minus2SD), linetype="dashed") +
+  geom_vline(aes(xintercept=plus25SD), linetype="dashed") +
+  geom_vline(aes(xintercept=minus25SD), linetype="dashed") +
+  geom_vline(aes(xintercept=plus3SD), linetype="dashed") +
+  geom_vline(aes(xintercept=minus3SD), linetype="dashed") +
+  annotate("text", x=plus2SD, y=3, label="+2SD", angle = 30) +
+  annotate("text", x=minus2SD, y=3, label="-2SD", angle = 30) +
+  annotate("text", x=plus25SD, y=3, label="+2.5SD", angle = 30) +
+  annotate("text", x=minus25SD, y=3, label="-2.5SD", angle = 30) +
+  annotate("text", x=plus3SD, y=3, label="+3SD", angle = 30) +
+  annotate("text", x=minus3SD, y=3, label="-3SD", angle = 30) +
+  annotate("text", x=data_2labels_sum_bSubj_vot$grandMean, y=3, label="mean", angle = 30) +
+  xlim(0,NA) +
+  ggtitle("Subject outliers based on naming latency (native)")
+dev.off()
+
+# select subjects with thada 
+data_2labels_sum_wSubj_vot[data_2labels_sum_wSubj_vot$mean < minus25SD |
+                       data_2labels_sum_wSubj_vot$mean > plus25SD, ]
+```
+
+Do the same with **inverted naming latencies**.
+
+```{r}
+
+# aggregate within subject
+data_2labels_sum_wSubj_votINV <- data_2labels %>%
+  group_by(subjID) %>%
+  summarise(mean = mean(VOTinv), sem=(sd(VOTinv)/sqrt((length(VOTinv)))), sd=sd(VOTinv))
+
+# aggregate between subjects
+data_2labels_sum_bSubj_votINV <- data_2labels_sum_wSubj_votINV %>%
+  summarise(grandMean = mean(mean), sem=(sd(mean)/sqrt((length(mean)))), sd=sd(mean))
+
+# calculate SD intervals
+plus2SD = data_2labels_sum_bSubj_votINV$grandMean + data_2labels_sum_bSubj_votINV$sd * 2
+minus2SD = data_2labels_sum_bSubj_votINV$grandMean - data_2labels_sum_bSubj_votINV$sd * 2
+plus25SD = data_2labels_sum_bSubj_votINV$grandMean + data_2labels_sum_bSubj_votINV$sd * 2.5
+minus25SD = data_2labels_sum_bSubj_votINV$grandMean - data_2labels_sum_bSubj_votINV$sd * 2.5
+plus3SD = data_2labels_sum_bSubj_votINV$grandMean + data_2labels_sum_bSubj_votINV$sd * 3
+minus3SD = data_2labels_sum_bSubj_votINV$grandMean - data_2labels_sum_bSubj_votINV$sd * 3
+
+# plot
+pdf("output_figures/LEALCO-BEH2_votINV_outliers.pdf")
+ggplot(data_2labels_sum_wSubj_votINV, aes(x=mean)) +
+  geom_dotplot() +
+  geom_density(alpha=.2, fill="black") +
+  geom_vline(aes(xintercept=data_2labels_sum_bSubj_votINV$grandMean)) +
+  geom_vline(aes(xintercept=plus2SD), linetype="dashed") +
+  geom_vline(aes(xintercept=minus2SD), linetype="dashed") +
+  geom_vline(aes(xintercept=plus25SD), linetype="dashed") +
+  geom_vline(aes(xintercept=minus25SD), linetype="dashed") +
+  geom_vline(aes(xintercept=plus3SD), linetype="dashed") +
+  geom_vline(aes(xintercept=minus3SD), linetype="dashed") +
+  annotate("text", x=plus2SD, y=3, label="+2SD", angle = 30) +
+  annotate("text", x=minus2SD, y=3, label="-2SD", angle = 30) +
+  annotate("text", x=plus25SD, y=3, label="+2.5SD", angle = 30) +
+  annotate("text", x=minus25SD, y=3, label="-2.5SD", angle = 30) +
+  annotate("text", x=plus3SD, y=3, label="+3SD", angle = 30) +
+  annotate("text", x=minus3SD, y=3, label="-3SD", angle = 30) +
+  annotate("text", x=data_2labels_sum_bSubj_votINV$grandMean, y=3, label="mean", angle = 30) +
+  ggtitle("Subject outliers based on naming latency (inverted)")
+dev.off()
+
+# select subjects with thada 
+data_2labels_sum_wSubj_votINV[data_2labels_sum_wSubj_votINV$mean < minus25SD |
+                       data_2labels_sum_wSubj_votINV$mean > plus25SD, ]
+```
+
+Overall, this condition-blind analysis of outliers showed that, for the **accuracy** measure, applying the following threshold results in excluding following subjects:
+
+-   **2 SD:** 15, 25
+
+-   **2.5 SD:** 15
+
+-   **3 SD:** 15
+
+For the **(native)** **VOT** measure applying the following threshold results in excluding following subjects:
+
+-   **2 SD:** 15
+
+-   **2.5 SD:** 15
+
+-   **3 SD:** 15
+
+For the **(inverted)** **VOT** measure applying the following threshold results in excluding following subjects:
+
+-   **2 SD:** 15
+
+-   **2.5 SD:** 15
+
+-   **3 SD:** 15
+
+Subjects 202, 225, 223 are excluded because they did not fulfimm the inclusion criteria or mistakes occurred suding stimulu spresentation.
+
+We select the exclusion criteria of +/-2.5SD resulting in no exclusions..
+
+```{r}
+exclusion_acc <- c('202', '225', '223')
+exclusion_vot <- c('202', '225', '223')
+```
+
+## Trial Overview
+
+Here, we generate some summary statistic about trial classification (after removing outliers).
+
+```{r}
+
+# select data (only on test items, but before filtering for invalid trials)
+data_overview <- data %>%
+  filter(type %in% c("2-label", "1-label")) 
+data_overview$error <- as_factor(data_overview$error)
+#data_overview$error <- droplevels(data_overview$error)
+
+# aggregate (within subject)
+overview_wSubj <- data_overview %>%
+  filter(!subjID %in% exclusion_acc) %>%
+  group_by(subjID, error) %>%
+  summarise(n = n()) %>%
+  complete(error, fill = list(n = 0)) %>%
+  group_by(subjID) %>%
+  mutate(
+    perc = n / sum(n) * 100
+  ) %>%
+  ungroup()
+
+# aggregte (between subject)
+overview_bSubj <- overview_wSubj %>%
+  group_by(error) %>%
+  summarise(count_mean = mean(n), count_sd = sd(n), perc_mean = mean(perc), perc_sd = sd(perc))
+
+# save
+write.csv(overview_bSubj, "output_stats/LEALCO-BEH2_trial_overview.csv")
+
+```
+
+## Sample Stats
+
+```{r}
+# sample ACC
+sample_ACC <- acc_wSubj_partner <- demo %>%
+  filter(!subjID  %in%  exclusion_acc) %>%
+  summarise(age_mean = mean(Alter), age_sd=sd(Alter),
+            n=length(subjID))
+sample_ACC_sex <- demo %>%
+  filter(!subjID  %in%  exclusion_acc) %>%
+  group_by(gender) %>%
+  summarize(n= n()) %>%
+  pivot_wider(names_from=gender, values_from=n)
+sample_ACC <- cbind(sample_ACC, sample_ACC_sex)
+
+# sample VOTinv
+sample_VOTinv <- acc_wSubj_partner <- demo %>%
+  filter(!subjID  %in%  exclusion_vot) %>%
+  summarise(age_mean = mean(Alter), age_sd=sd(Alter),
+            n=length(subjID))
+sample_VOTinv_sex <- demo %>%
+  filter(!subjID  %in%  exclusion_vot) %>%
+  group_by(gender) %>%
+  summarize(n= n()) %>%
+  pivot_wider(names_from=gender, values_from=n)
+sample_VOTinv <- cbind(sample_VOTinv, sample_VOTinv_sex)
+
+# save
+write.csv(sample_ACC, "output_stats/LEALCO-BEH2_demographic_summary_ACCsample.csv")
+write.csv(sample_VOTinv, "output_stats/LEALCO-BEH2_demographic_summary_VOTinvsample.csv")
+```
+
+## Label Maintenance
+
+### By Subject (congruency)
+
+Here we just have a simple look at accuracy, that is we consider correct only those trials where the subject said *exactly* the word they were expected to say.
+
+```{r}
+
+# aggregate
+acc_wSubj_congruency <- data_2labels %>%
+  filter(!subjID %in%  exclusion_acc) %>%
+  group_by(subjID, correct) %>%
+  summarize(n=n()) %>%
+  mutate(proportion = n / sum(n))
+
+# save
+write.csv(acc_wSubj_congruency, "output_stats/LEALCO-BEH2_accuracy_withinSubjects_congruency.csv", row.names = FALSE)
+
+# plot (within subject)
+pdf("output_figures/LEALCO-BEH2_accuracy_withinSubjects_congruency_barplot.pdf")
+a <- ggplot(acc_wSubj_congruency, aes(y=proportion, x=correct, fill=correct)) + 
+  geom_bar(stat="identity", color = "black", position=position_dodge()) +
+  scale_fill_manual(values = pal3) +
+  labs(y="Produced labels (proportion)", x="Label Type") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  ylim(0,1) +
+  facet_wrap(~subjID)
+a
+dev.off() 
+a
+```
+
+```{r}
+# aggregte (between subject)
+acc_bSubj_congruency <- acc_wSubj_congruency %>%
+  group_by(correct) %>%
+  summarise(mean_bSubj = mean(proportion), sd_bSubj=sd(proportion), sem_bSubj=(sd(proportion)/sqrt((length(proportion)))), n_bSubj=length(proportion))
+
+# save
+write.csv(acc_bSubj_congruency, "output_stats/LEALCO-BEH2_accuracy_betweenSubjects_congruency.csv", row.names = FALSE)
+
+# plot (within subject)
+pdf("output_figures/LEALCO-BEH2_accuracy_betweenSubjects_congruency_barplot.pdf")
+c <- ggplot(acc_bSubj_congruency, aes(y=mean_bSubj, x=correct, fill=correct)) + 
+  geom_bar(stat="identity", color = "black", position=position_dodge()) +
+  geom_errorbar(aes(ymin=mean_bSubj-sem_bSubj, ymax=mean_bSubj+sem_bSubj), width=.2, position=position_dodge(.9)) +
+  scale_fill_manual(values = pal3) +
+   labs(y="Produced labels (proportion)", x="Label Type") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) +
+  theme(legend.title = element_blank()) +
+  ylim(0,1)
+c
+dev.off()
+c
+
+# make other more transparent plot
+pdf("output_figures/LEALCO-BEH2_accuracy_betweenSubjects_congruency_pointplot.pdf")
+zz <- ggplot(acc_bSubj_congruency, aes(y=mean_bSubj, x=correct, fill=correct)) + 
+  geom_point(data= acc_wSubj_congruency, aes(y=proportion, x=correct, color=correct), stat="identity", position=position_jitterdodge(jitter.width=0.3, dodge.width=.9), size=3) + 
+  scale_colour_manual(values = pal3) +
+    geom_point(stat="identity", color = "black", position=position_dodge(.9), size=3) +
+  geom_errorbar(aes(ymin=mean_bSubj-sem_bSubj, ymax=mean_bSubj+sem_bSubj), width=.2, position=position_dodge(.9)) +
+  labs(y="Produced labels (proportion)", x="Label Type") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) +
+  theme(legend.title = element_blank()) +
+  ylim(0,1)
+zz
+dev.off()
+zz
+```
+
+### By Subject (Partner x Label)
+
+```{r}
+# aggregte (within subject)
+acc_wSubj_partner <- data_2labels %>%
+ filter(!subjID %in%  exclusion_acc) %>%
+ group_by(subjID, partner, produced_label, .drop=FALSE) %>%
+  summarize(n=n())
+
+# calculate proportions 
+counts <- data_2labels %>%
+ filter(!subjID %in%  exclusion_acc) %>%
+ group_by(subjID, partner,  .drop=FALSE) %>%
+  summarize(n_total=n())
+acc_wSubj_partner <- merge(x=acc_wSubj_partner,y=counts, 
+             by=c("subjID", "partner"))
+acc_wSubj_partner$proportion <- acc_wSubj_partner$n/acc_wSubj_partner$n_tot
+
+# add correctness
+acc_wSubj_partner$correct <- "other"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'A' & acc_wSubj_partner$produced_label == 'label_A'] <- "matched"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'B' & acc_wSubj_partner$produced_label == 'label_B'] <- "matched"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'A' & acc_wSubj_partner$produced_label == 'label_A'] <- "matched"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'B' & acc_wSubj_partner$produced_label == 'label_B'] <- "matched"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'A' & acc_wSubj_partner$produced_label == 'label_B'] <- "non-matched"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'B' & acc_wSubj_partner$produced_label == 'label_A'] <- "non-matched"
+
+# plot
+pdf("output_figures/LEALCO-BEH2_accuracy_withinSubjects_partner_barplot.pdf")
+a <- ggplot(acc_wSubj_partner, aes(y=proportion, x=partner, group=produced_label, fill=produced_label)) +
+  geom_bar(stat="identity", color = "black", position=position_dodge()) +
+  scale_fill_manual(values =pal1) +
+  labs(y="Precedent maintenance (proportion)", x="Partner") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) +
+  ylim(0,1) +
+  facet_wrap(~subjID)
+a
+dev.off()
+a
+```
+
+```{r}
+# aggregte (between subject)
+acc_bSubj_partner <- acc_wSubj_partner %>%
+  group_by(partner, produced_label, correct) %>%
+  summarise(mean_bSubj = mean(proportion), sd_bSubj=sd(proportion), sem_bSubj=(sd(proportion)/sqrt((length(proportion)))), n_bSubj=length(proportion))
+
+# save
+write.csv(acc_bSubj_partner, "output_stats/LEALCO-BEH2_accuracy_betweenSubjects_partner.csv", row.names = FALSE)
+
+# plot (within subject)
+pdf("output_figures/LEALCO-BEH2_accuracy_betweenSubjects_partner_barplot.pdf")
+c <- ggplot(acc_bSubj_partner, aes(y=mean_bSubj, x=partner, group=produced_label, fill=produced_label)) + 
+  geom_bar(stat="identity", color = "black", position=position_dodge()) +
+  geom_errorbar(aes(ymin=mean_bSubj-sem_bSubj, ymax=mean_bSubj+sem_bSubj), width=.2, position=position_dodge(.9)) +
+  scale_fill_manual(values = pal1) +
+  labs(y="Precedent maintenance (proportion)", x="Partner") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) +
+  theme(legend.title = element_blank()) +
+  ylim(0,1) +
+  geom_text(aes(label = produced_label), vjust = -2.5, position=position_dodge(0.9))
+c
+dev.off()
+c
+
+# make other more transparent plot
+pdf("output_figures/LEALCO-BEH2_accuracy_betweenSubjects_partner_pointplot.pdf")
+zz <- ggplot(acc_bSubj_partner, aes(y=mean_bSubj, x=partner, group=produced_label, fill=produced_label)) + 
+  geom_point(data= acc_wSubj_partner, aes(y=proportion, x=partner, color=produced_label), stat="identity", position=position_jitterdodge(jitter.width=0.1, dodge.width=.9), size=3) + 
+  scale_colour_manual(values = pal1) +
+    geom_point(stat="identity", color = "black", position=position_dodge(.9), size=3) +
+  geom_errorbar(aes(ymin=mean_bSubj-sem_bSubj, ymax=mean_bSubj+sem_bSubj), width=.2, position=position_dodge(.9)) +
+  labs(y="Precedent maintenance (proportion)", x="Partner") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) +
+  theme(legend.title = element_blank()) +
+  ylim(0,1) +
+    geom_text(aes(label = produced_label), vjust = -2.5, position=position_dodge(0.9))
+zz
+dev.off()
+zz
+
+
+labels <- data.frame(
+  x = c(
+    seq(-0.5, -0.25, length.out = 10),
+    seq(-0.5, -0.25, length.out = 11)
+  ),
+  label = c(
+    format(seq(-0.5, -0.25, length.out = 10), digits = 2),
+    paste0("\n", LETTERS[1:11])
+  )
+)
+```
+
+## By Subject (Partner x Label x Test Order)
+
+```{r}
+# aggregte (within subject)
+acc_wSubj_partner <- data_2labels %>%
+ filter(!subjID %in%  exclusion_acc) %>%
+ group_by(subjID, partner, produced_label, training_order, .drop=FALSE) %>%
+  summarize(n=n())
+
+# calculate proportions 
+counts <- data_2labels %>%
+ filter(!subjID %in%  exclusion_acc) %>%
+ group_by(subjID, partner,  training_order, .drop=FALSE) %>%
+  summarize(n_total=n())
+acc_wSubj_partner <- merge(x=acc_wSubj_partner,y=counts, 
+             by=c("subjID", "partner", "training_order"))
+acc_wSubj_partner$proportion <- acc_wSubj_partner$n/acc_wSubj_partner$n_tot
+
+# add correctness
+acc_wSubj_partner$correct <- "other"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'A' & acc_wSubj_partner$produced_label == 'label_A'] <- "matched"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'B' & acc_wSubj_partner$produced_label == 'label_B'] <- "matched"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'A' & acc_wSubj_partner$produced_label == 'label_A'] <- "matched"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'B' & acc_wSubj_partner$produced_label == 'label_B'] <- "matched"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'A' & acc_wSubj_partner$produced_label == 'label_B'] <- "non-matched"
+acc_wSubj_partner$correct[acc_wSubj_partner$partner == 'B' & acc_wSubj_partner$produced_label == 'label_A'] <- "non-matched"
+
+# aggregte (between subject)
+acc_bSubj_partner <- acc_wSubj_partner %>%
+  group_by(partner, produced_label, training_order, correct) %>%
+  summarise(mean_bSubj = mean(proportion, na.rm=TRUE), sd_bSubj=sd(proportion, na.rm=TRUE), sem_bSubj=(sd(proportion, na.rm=TRUE)/sqrt((length(proportion)))), n_bSubj=length(proportion))
+
+
+
+# save
+#write.csv(acc_bSubj_partner, "output_stats/LEALCO-BEH2_accuracy_betweenSubjects_partner.csv", row.names = FALSE)
+
+# plot (within subject)
+#pdf("output_figures/LEALCO-BEH2_accuracy_betweenSubjects_partner_barplot.pdf")
+c <- ggplot(acc_bSubj_partner, aes(y=mean_bSubj, x=partner, group=produced_label, fill=produced_label)) + 
+  geom_bar(stat="identity", color = "black", position=position_dodge()) +
+  geom_errorbar(aes(ymin=mean_bSubj-sem_bSubj, ymax=mean_bSubj+sem_bSubj), width=.2, position=position_dodge(.9)) +
+  scale_fill_manual(values = pal1) +
+  labs(y="Precedent maintenance (proportion)", x="Partner") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) +
+  theme(legend.title = element_blank()) +
+  ylim(0,1) +
+  facet_wrap(~training_order)
+c
+#dev.off()
+
+
+```
+
+### LMM (binomial)
+
+Here, we run a first model. Note that our dependent variable (the type of label produced by the subjects) is a categorical variable with 3 levels (label A, label B, other). LMMs are not naturally made to handle DVs with more than 2 levels (but see [here](https://stackoverflow.com/questions/76623653/mixed-effect-multinomial-logistic-regression-model-in-r-non-bayesian-approach) and [here](https://cran.r-project.org/web/packages/multpois/index.html) for possible solutions). For this reason, we run a first model where we "drop" the level "other".
+
+Prepare the ACC data for LMMs.
+
+```{r}
+# for each trial, cretae new variable containing the perceived quality of teamwork, dependin gon the current partner (this just takes the correct value from the debfirefing questionnaire, depending on which partner the trial took place with)
+#data_trained$team  <- ifelse(data_trained$partner == 'A', data_trained$T101, #data_trained$T201)
+
+# select data
+acc_binomial <- data_2labels %>%
+  filter(!subjID %in%  exclusion_acc) %>%
+  filter(correct != 'other')
+
+# drop levels that are not present in the data
+acc_binomial$produced_label <- droplevels(acc_binomial$produced_label)
+acc_binomial$produced_label <- fct_relevel(acc_binomial$produced_label, "label_B", "label_A")
+
+# Set sum contrasts for all variables.
+contrasts(acc_binomial$test_partner) <- contr.sum(2)
+contrasts(acc_binomial$produced_label) <- contr.sum(2)
+contrasts(acc_binomial$block)  <- contr.sum(2)
+contrasts(acc_binomial$primacy)  <- contr.sum(2)
+contrasts(acc_binomial$training_order)  <- contr.sum(2)
+
+
+# check contrasts
+contrasts(acc_binomial$test_partner)
+contrasts(acc_binomial$produced_label)
+contrasts(acc_binomial$block)
+contrasts(acc_binomial$primacy)
+contrasts(acc_binomial$recency)
+contrasts(acc_binomial$training_order) 
+
+# center continious covariates
+acc_binomial <- acc_binomial %>%
+  mutate(c_norm = norm - mean(norm, na.rm=TRUE))
+```
+
+Try to find the maximally convergent model by using the *buildmer()* approach.
+
+```{r}
+# indicate the maximal effect srucutre (both fixed and random) that is motivated based on design & hypotheses
+f <- produced_label ~ test_partner*block * training_order * c_norm +
+     (test_partner*produced_label*block * training_order | subjID) +
+     (test_partner*produced_label*block * training_order  | target_label)
+
+# select the maximal model that still converges
+m_acc <- buildmer(f,family=binomial, data=acc_binomial,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_acc)
+
+sink("output_stats/LEALCO-BEH2_acc_lmm.txt")
+print(summary(m_acc))
+sink()  # returns output to the console
+save_model_to_html(m_acc@model, 3 , 'LEALCO-BEH2_acc_lmm.html')
+
+```
+
+Make usual sanity checks for the winning model.
+
+```{r}
+# qqplot
+pdf("output_figures/LEALCO-BEH2_acc_lmm_qqplot.pdf")
+qqnorm(residuals(m_acc))
+dev.off()
+
+# histogram
+pdf("output_figures/LEALCO-BEH2_acc_lmm_hist.pdf")
+hist(residuals(m_acc))
+dev.off()
+
+# standardized residuals
+pdf("output_figures/LEALCO-BEH2_acc_lmm_residuals.pdf")
+plot(residuals(m_acc))
+dev.off()
+```
+
+### \> Post-hoc / marginal means for (Partner Type x Norm)
+
+Note, that Norms do not refer to the word that was *supposed* to be said 8aka the word matching the partner) but to the word that was actually said. Note also that Norms are NOt normally distributed: most of the norms are below 0.2.
+
+What this analysis says is that some rare tangrams (regardless which partner they were assigned to) had one of the two labels with such high norms, that this norm prevailed over the partner manipulation. So the data on the right side of each graph (high naming norms) represents cases where participants stuck to that high norm label all the time,. In 50% of the cases the label matched the curren tpartner, but in 50% it mismatched, resulting in this 0% scored with large error bars.
+
+```{r}
+m_acc.emm_none_partner_norm <-emmeans(m_acc@model, pairwise ~ c_norm * test_partner, adjust = "none", cov.reduce = function(x) quantile(x, c(0.1, 0.25, 0.5, 0.75, 0.9)))
+
+
+# extract and save marginal means
+m_acc.mm_partner_norm <- as.data.frame(m_acc.emm_none_partner_norm$emmeans)
+m_acc.mm_partner_norm$emmean_untrans <- plogis(m_acc.mm_partner_norm$emmean) *100
+m_acc.mm_partner_norm$asymp.LCL_untrans <- plogis(m_acc.mm_partner_norm$asymp.LCL) *100
+m_acc.mm_partner_norm$asymp.UCL_untrans <- plogis(m_acc.mm_partner_norm$asymp.UCL) *100
+
+# save them
+write.csv(m_acc.mm_partner_norm,"output_stats/LEALCO-BEH2_acc_binomial_lmm_marginalMeans_partner_norm.csv", row.names = FALSE)
+
+# visualize marginal means
+pdf("output_figures/LEALCO-BEH2_acc_binomial_lmm_marginal_partner_norm_pointplot.pdf")
+tt <- ggplot(m_acc.mm_partner_norm, aes(y=emmean_untrans, x=c_norm, group=test_partner)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(0.05), size=3) +
+  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.1, position=position_dodge(.05)) +
+  labs(y="Label Maintenance\n(%)", x="Naming Norms") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,100) +
+  facet_wrap(~test_partner)
+tt
+dev.off()
+tt
+```
+
+### \> Post-hoc / marginal means (Test Partner)
+
+```{r}
+# make post-hoc with no correction
+m_acc.emm_none_partner <-emmeans(m_acc@model, pairwise ~ test_partner, adjust = "none")
+m_acc.ph_none_partner <- as.data.frame(m_acc.emm_none_partner$contrasts)
+write.csv(m_acc.emm_none_partner,"output_stats/LEALCO-BEH2_acc_binomial_ph_none_testpartner.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc.mm_partner <- as.data.frame(m_acc.emm_none_partner$emmeans)
+m_acc.mm_partner$emmean_untrans <- plogis(m_acc.mm_partner$emmean)
+m_acc.mm_partner$asymp.LCL_untrans <- plogis(m_acc.mm_partner$asymp.LCL)
+m_acc.mm_partner$asymp.UCL_untrans <- plogis(m_acc.mm_partner$asymp.UCL)
+
+# furtner process them
+m_acc.mm_partner$produced_label <- 'label_A'
+m_acc.mm_partnerB <- m_acc.mm_partner 
+m_acc.mm_partnerB$produced_label <- 'label_B'
+m_acc.mm_partnerB$emmean_untrans <- 1 - m_acc.mm_partnerB$emmean_untrans
+m_acc.mm_partnerB$asymp.LCL_untrans <- 1 - m_acc.mm_partner$asymp.UCL_untrans
+m_acc.mm_partnerB$asymp.UCL_untrans <- 1 - m_acc.mm_partner$asymp.LCL_untrans
+m_acc.mm_partner <- rbind(m_acc.mm_partner, m_acc.mm_partnerB)
+m_acc.mm_partner$emmean_untrans <- m_acc.mm_partner$emmean_untrans  *100
+m_acc.mm_partner$asymp.LCL_untrans <- m_acc.mm_partner$asymp.LCL_untrans * 100
+m_acc.mm_partner$asymp.UCL_untrans <- m_acc.mm_partner$asymp.UCL_untrans * 100
+
+# save them
+write.csv(m_acc.mm_partner,"output_stats/LEALCO-BEH2_acc_binomial_lmm_marginalMeans_partner.csv", row.names = FALSE)
+
+# plot
+tt <- ggplot(m_acc.mm_partner, aes(y=emmean_untrans, x=test_partner, group=produced_label, col=produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(.3), size=3) +
+  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.3)) +
+  labs(y="Label Maintenance\n(%)", x="Partner") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,100) 
+ggsave("output_figures/LEALCO-BEH2_acc_binomial_lmm_marginal_labelall_partner_pointplot.pdf", width=4.5
+       , height=3.5)
+tt
+
+# stacked bar plot (to be reworked)
+# tt <- ggplot(m_acc.mm_partner, aes(y=emmean_untrans, x=test_partner, group=test_partner, fill=produced_label)) +
+#   scale_colour_manual(values = pal1) +
+#   geom_bar(stat="identity", color="black") +
+#   geom_point(stat="identity", position=position_dodge(.9), size=3) +
+#   geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.9)) +
+#   labs(y="Label Maintenance\n(%)", x="Partner") +
+#   theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+#   ylim(0,100) +
+#   scale_fill_manual(values = pal1)
+# tt
+```
+
+### \> Post-hoc / marginal means (Test Partner x Primacy x Recency)
+
+```{r}
+# # make post-hoc with no correction
+# m_acc.ph_none_partner <-emmeans(m_acc@model, ~ test_partner * training_order, adjust = "none")
+# m_acc.emm_none_partner <- as.data.frame(m_acc.ph_none_partner$contrasts)
+# write.csv(m_acc.emm_none_partner,"output_stats/LEALCO-BEH2_acc_ph_none_testpartner_x_order.csv", row.names = FALSE)
+# 
+# # extract and save marginal means
+# m_acc.mm_partner <- as.data.frame(m_acc.emm_none_partner$emmeans)
+# m_acc.mm_partner$emmean_untrans <- plogis(m_acc.mm_partner$emmean)
+# m_acc.mm_partner$asymp.LCL_untrans <- plogis(m_acc.mm_partner$asymp.LCL)
+# m_acc.mm_partner$asymp.UCL_untrans <- plogis(m_acc.mm_partner$asymp.UCL)
+# 
+# # save them
+# write.csv(m_acc.mm_partner,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_partner.csv", row.names = FALSE)
+# 
+# # visualize marginal means
+# #pdf("output_figures/LEALCO-BEH2_acc_lmm_marginal_partner_pointplot.pdf")
+# tt <- ggplot(m_acc.mm_partner, aes(y=emmean_untrans, x=test_partner, group=primacy      )) +
+#   scale_colour_manual(values = pal1) +
+#   geom_point(stat="identity", position=position_dodge(.9), size=3) +
+#   geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.9)) +
+#   labs(y="Production of label B (vs. A)\n(proportion)", x="Partner") +
+#   theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+#   ylim(0,1) +
+#   facet_grid(recency ~ primacy)
+# tt
+# #dev.off()
+# #tt
+```
+
+### LMM (pseudo-multinomial)
+
+The "binomial" approach has the advantage that is allows to directly tets the effect of partner on label_A and label_B which is our core researh question. However, the downside is tht it requires us to completely disregard the "other" responses. A work around is th transform our trinomial DV in three separat e DV which each will be modelleld separately.
+
+Label A and Label B: training_factor tropped from ther by subJect random factors
+
+Also, removing training_factor from the by item random structure "solves" the issue of overfitting (?).
+
+Label Other: c_norm dropped from the fixed structure
+
+```{r}
+# select data
+acc_multinomial <- data_2labels %>%
+  filter(!subjID %in%  exclusion_acc)
+
+# create dummy DVs for each of the levels of our DV
+acc_multinomial$dummy_label_A  <- ifelse(acc_multinomial$produced_label == 'label_A', 1, 0)
+acc_multinomial$dummy_label_B  <- ifelse(acc_multinomial$produced_label == 'label_B', 1, 0)   
+acc_multinomial$dummy_label_other  <- ifelse(acc_multinomial$produced_label == 'other', 1, 0)   
+
+
+acc_multinomial$dummy_label_A <- as_factor(acc_multinomial$dummy_label_A)
+acc_multinomial$dummy_label_B <- as_factor(acc_multinomial$dummy_label_B)
+acc_multinomial$dummy_label_other <- as_factor(acc_multinomial$dummy_label_other)
+
+# Set sum contrasts for all variables.
+contrasts(acc_multinomial$test_partner) <- contr.sum(2)
+contrasts(acc_multinomial$block)  <- contr.sum(2)
+contrasts(acc_multinomial$primacy)  <- contr.sum(2)
+contrasts(acc_multinomial$recency)  <- contr.sum(2)
+contrasts(acc_multinomial$training_order)  <- contr.sum(2)
+
+# check contrasts
+contrasts(acc_multinomial$test_partner)
+contrasts(acc_multinomial$block)
+contrasts(acc_multinomial$primacy)
+contrasts(acc_multinomial$recency)
+contrasts(acc_multinomial$training_order)
+
+# center continious covariates
+acc_multinomial <- acc_multinomial %>%
+  mutate(c_norm = norm - mean(norm, na.rm=TRUE))
+```
+
+```{r}
+
+# indicate the maximal effect structure (both fixed and random) that is motivated based on design & hypotheses
+f <- dummy_label_A ~ test_partner*block * c_norm * training_order+
+     (test_partner * block  | subjID) +
+     (test_partner * block * training_order | target_label)
+
+# select the maximal model that still converges
+m_acc_labelA <- buildmer(f,family=binomial, data=acc_multinomial,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_acc_labelA)
+
+sink("output_stats/LEALCO-BEH2_acc_labelA_lmm.txt")
+print(summary(m_acc_labelA))
+sink()  # returns output to the console
+```
+
+```{r}
+# indicate the maximal effect srucutre (both fixend and random) that is motivated based on design & hypotheses
+f <- dummy_label_B ~ test_partner*block * training_order * c_norm +
+     (test_partner*block  | subjID) +
+     (test_partner*block * training_order | target_label)
+
+# select the maximal model that still converges
+m_acc_labelB <- buildmer(f,family=binomial, data=acc_multinomial,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_acc_labelB)
+
+sink("output_stats/LEALCO-BEH2_acc_labelB_lmm.txt")
+print(summary(m_acc_labelB))
+sink()  # returns output to the console
+
+```
+
+```{r}
+# indicate the maximal effect srucutre (both fixend and random) that is motivated based on design & hypotheses
+f <- dummy_label_other ~ test_partner*block * training_order +
+     (test_partner*block | subjID) +
+     (test_partner*block * training_order  | target_label)
+
+# select the maximal model that still converges
+m_acc_labelother <- buildmer(f,family=binomial, data=acc_multinomial,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_acc_labelother)
+
+sink("output_stats/LEALCO-BEH2_acc_labelother_lmm.txt")
+print(summary(m_acc_labelother))
+sink()  # returns output to the console
+```
+
+### \> Post-hoc / marginal means (Test Partner)
+
+```{r}
+# ========= LABEL A ========
+
+# make post-hoc with no correction
+m_acc_labelA.emm_none_partner <-emmeans(m_acc_labelA@model, pairwise ~ test_partner, adjust = "none")
+m_acc_labelA.ph_none_partner <- as.data.frame(m_acc_labelA.emm_none_partner$contrasts)
+write.csv(m_acc_labelA.ph_none_partner,"output_stats/LEALCO-BEH2_acc_labelA_ph_none_testpartner.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelA.mm_partner <- as.data.frame(m_acc_labelA.emm_none_partner$emmeans)
+m_acc_labelA.mm_partner$emmean_untrans <- plogis(m_acc_labelA.mm_partner$emmean)
+m_acc_labelA.mm_partner$asymp.LCL_untrans <- plogis(m_acc_labelA.mm_partner$asymp.LCL)
+m_acc_labelA.mm_partner$asymp.UCL_untrans <- plogis(m_acc_labelA.mm_partner$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelA.mm_partner,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelA_partner.csv", row.names = FALSE)
+
+# ========= LABEL B ========
+
+# make post-hoc with no correction
+m_acc_labelB.emm_none_partner <-emmeans(m_acc_labelB@model, pairwise ~ test_partner, adjust = "none")
+m_acc_labelB.ph_none_partner <- as.data.frame(m_acc_labelB.emm_none_partner$contrasts)
+write.csv(m_acc_labelB.ph_none_partner,"output_stats/LEALCO-BEH2_acc_labelB_ph_none_testpartner.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelB.mm_partner <- as.data.frame(m_acc_labelB.emm_none_partner$emmeans)
+m_acc_labelB.mm_partner$emmean_untrans <- plogis(m_acc_labelB.mm_partner$emmean)
+m_acc_labelB.mm_partner$asymp.LCL_untrans <- plogis(m_acc_labelB.mm_partner$asymp.LCL)
+m_acc_labelB.mm_partner$asymp.UCL_untrans <- plogis(m_acc_labelB.mm_partner$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelB.mm_partner,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelB_partner.csv", row.names = FALSE)
+
+
+# ========= LABEL OTHER ========
+
+# make post-hoc with no correction
+m_acc_labelother.emm_none_partner <-emmeans(m_acc_labelother@model, pairwise ~ test_partner, adjust = "none")
+m_acc_labelother.ph_none_partner <- as.data.frame(m_acc_labelother.emm_none_partner$contrasts)
+write.csv(m_acc_labelother.ph_none_partner,"output_stats/LEALCO-BEH2_acc_labelother_ph_none_testpartner.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelother.mm_partner <- as.data.frame(m_acc_labelother.emm_none_partner$emmeans)
+m_acc_labelother.mm_partner$emmean_untrans <- plogis(m_acc_labelother.mm_partner$emmean)
+m_acc_labelother.mm_partner$asymp.LCL_untrans <- plogis(m_acc_labelother.mm_partner$asymp.LCL)
+m_acc_labelother.mm_partner$asymp.UCL_untrans <- plogis(m_acc_labelother.mm_partner$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelother.mm_partner,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelother_partner.csv", row.names = FALSE)
+
+# ======== visualize =========
+
+m_acc_labelA.mm_partner$produced_label <- 'label_A'
+m_acc_labelB.mm_partner$produced_label <- 'label_B'
+m_acc_labelother.mm_partner$produced_label <- 'other'
+
+m_acc_all.mm_partner <- rbind(m_acc_labelA.mm_partner, m_acc_labelB.mm_partner, m_acc_labelother.mm_partner)
+
+m_acc_all.mm_partner <- m_acc_all.mm_partner %>% 
+  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ "matched",
+                           test_partner == 'B' & produced_label == 'label_B' ~ "matched",
+                           test_partner == 'A' & produced_label == 'label_B' ~ "non-matched",
+                           test_partner == 'B' & produced_label == 'label_A' ~ "non-matched",
+                           produced_label == 'other' ~ 'other'))
+
+# visualize marginal means
+tt <- ggplot(m_acc_all.mm_partner, aes(y=emmean_untrans, x=test_partner, group=produced_label, col=produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(0.5), size=3) +
+  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.5)) +
+  labs(y="Precedent Maintenance\n(proportion)", x="Partner") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,1) 
+ggsave("output_figures/LEALCO-BEH2_acc_lmm_marginal_labelall_partner_pointplot.pdf", width=4.5
+       , height=3.5)
+tt
+```
+
+### \> Post-hoc / marginal means (Training Order)
+
+```{r}
+# ========= LABEL A ========
+
+# make post-hoc with no correction
+m_acc_labelA.emm_none_trainingorder <-emmeans(m_acc_labelA@model, pairwise ~ training_order, adjust = "none")
+m_acc_labelA.ph_none_trainingorder <- as.data.frame(m_acc_labelA.emm_none_trainingorder$contrasts)
+write.csv(m_acc_labelA.ph_none_trainingorder,"output_stats/LEALCO-BEH2_acc_labelA_ph_none_trainingorder.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelA.mm_trainingorder <- as.data.frame(m_acc_labelA.emm_none_trainingorder$emmeans)
+m_acc_labelA.mm_trainingorder$emmean_untrans <- plogis(m_acc_labelA.mm_trainingorder$emmean)
+m_acc_labelA.mm_trainingorder$asymp.LCL_untrans <- plogis(m_acc_labelA.mm_trainingorder$asymp.LCL)
+m_acc_labelA.mm_trainingorder$asymp.UCL_untrans <- plogis(m_acc_labelA.mm_trainingorder$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelA.mm_trainingorder,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelA_trainingorder.csv", row.names = FALSE)
+
+# ========= LABEL B ========
+
+# make post-hoc with no correction
+m_acc_labelB.emm_none_trainingorder <-emmeans(m_acc_labelB@model, pairwise ~ training_order, adjust = "none")
+m_acc_labelB.ph_none_trainingorder <- as.data.frame(m_acc_labelB.emm_none_trainingorder$contrasts)
+write.csv(m_acc_labelB.ph_none_trainingorder,"output_stats/LEALCO-BEH2_acc_labelB_ph_none_trainingorder.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelB.mm_trainingorder <- as.data.frame(m_acc_labelB.emm_none_trainingorder$emmeans)
+m_acc_labelB.mm_trainingorder$emmean_untrans <- plogis(m_acc_labelB.mm_trainingorder$emmean)
+m_acc_labelB.mm_trainingorder$asymp.LCL_untrans <- plogis(m_acc_labelB.mm_trainingorder$asymp.LCL)
+m_acc_labelB.mm_trainingorder$asymp.UCL_untrans <- plogis(m_acc_labelB.mm_trainingorder$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelB.mm_trainingorder,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelB_trainingorder.csv", row.names = FALSE)
+
+# ========= LABEL OTHER ========
+
+# make post-hoc with no correction
+m_acc_labelother.emm_none_trainingorder <-emmeans(m_acc_labelother@model, pairwise ~ training_order, adjust = "none")
+m_acc_labelother.ph_none_trainingorder <- as.data.frame(m_acc_labelother.emm_none_trainingorder$contrasts)
+write.csv(m_acc_labelother.ph_none_trainingorder,"output_stats/LEALCO-BEH2_acc_labelother_ph_none_trainingorder.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelother.mm_trainingorder <- as.data.frame(m_acc_labelother.emm_none_trainingorder$emmeans)
+m_acc_labelother.mm_trainingorder$emmean_untrans <- plogis(m_acc_labelother.mm_trainingorder$emmean)
+m_acc_labelother.mm_trainingorder$asymp.LCL_untrans <- plogis(m_acc_labelother.mm_trainingorder$asymp.LCL)
+m_acc_labelother.mm_trainingorder$asymp.UCL_untrans <- plogis(m_acc_labelother.mm_trainingorder$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelother.mm_trainingorder,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelother_trainingorder.csv", row.names = FALSE)
+
+# ======== visualize =========
+
+m_acc_labelA.mm_trainingorder$produced_label <- 'label_A'
+m_acc_labelB.mm_trainingorder$produced_label <- 'label_B'
+m_acc_labelother.mm_trainingorder$produced_label <- 'other'
+
+m_acc_all.mm_trainingorder <- rbind(m_acc_labelA.mm_trainingorder, m_acc_labelB.mm_trainingorder, m_acc_labelother.mm_trainingorder)
+
+#m_acc_all.mm_trainingorder <- m_acc_all.mm_trainingorder %>% 
+#  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ #"matched",
+#                           test_partner == 'B' & produced_label == 'label_B' ~ #"matched",
+#                           test_partner == 'A' & produced_label == 'label_B' ~ #"non-matched",
+#                           test_partner == 'B' & produced_label == 'label_A' ~ #"non-matched",
+#                           produced_label == 'other' ~ 'other'))
+
+# visualize marginal means
+pdf("output_figures/LEALCO-BEH2_acc_lmm_marginal_labelall_trainingorder_pointplot.pdf")
+tt <- ggplot(m_acc_all.mm_trainingorder, aes(y=emmean_untrans, x=training_order, group=produced_label, col=produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(0.5), size=3) +
+  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.5)) +
+  labs(y="Precedent maintenance\n(proportion)", x="Training Order") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,1) 
+tt
+dev.off()
+tt
+```
+
+### \> Post-hoc / marginal means (Test Partner x Naming Norms)
+
+```{r}
+# ========= LABEL A ========
+
+# make post-hoc with no correction
+m_acc_labelA.emm_none_partner_norm <-emmeans(m_acc_labelA@model, pairwise ~ c_norm * test_partner, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
+
+m_acc_labelA.ph_none_partner_norm <- as.data.frame(m_acc_labelA.emm_none_partner_norm$contrasts)
+write.csv(m_acc_labelA.ph_none_trainingorder_testpartner,"output_stats/LEALCO-BEH2_acc_labelA_ph_none_partner_norm.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelA.mm_partner_norm <- as.data.frame(m_acc_labelA.emm_none_partner_norm$emmeans)
+m_acc_labelA.mm_partner_norm$emmean_untrans <- plogis(m_acc_labelA.mm_partner_norm$emmean)
+m_acc_labelA.mm_partner_norm$asymp.LCL_untrans <- plogis(m_acc_labelA.mm_partner_norm$asymp.LCL)
+m_acc_labelA.mm_partner_norm$asymp.UCL_untrans <- plogis(m_acc_labelA.mm_partner_norm$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelA.mm_partner_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelA_partner_norm.csv", row.names = FALSE)
+
+# ========= LABEL B ========
+
+# make post-hoc with no correction
+m_acc_labelB.emm_none_partner_norm <-emmeans(m_acc_labelB@model, pairwise ~ c_norm * test_partner, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
+m_acc_labelB.ph_none_partner_norm <- as.data.frame(m_acc_labelB.emm_none_partner_norm$contrasts)
+write.csv(m_acc_labelB.ph_none_trainingorder_testpartner,"output_stats/LEALCO-BEH2_acc_labelB_ph_none_partner_norm.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelB.mm_partner_norm <- as.data.frame(m_acc_labelB.emm_none_partner_norm$emmeans)
+m_acc_labelB.mm_partner_norm$emmean_untrans <- plogis(m_acc_labelB.mm_partner_norm$emmean)
+m_acc_labelB.mm_partner_norm$asymp.LCL_untrans <- plogis(m_acc_labelB.mm_partner_norm$asymp.LCL)
+m_acc_labelB.mm_partner_norm$asymp.UCL_untrans <- plogis(m_acc_labelB.mm_partner_norm$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelB.mm_partner_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelB_partner_norm.csv", row.names = FALSE)
+
+# ========= LABEL OTHER ========
+# This we cannot do with the variable "Label Other" because c_norm was notint he model.
+
+# ======== visualize =========
+
+m_acc_labelA.mm_partner_norm$produced_label <- 'label_A'
+m_acc_labelB.mm_partner_norm$produced_label <- 'label_B'
+
+m_acc_labelall.mm_partner_norm <- rbind(m_acc_labelA.mm_partner_norm, m_acc_labelB.mm_partner_norm)
+
+m_acc_labelall.mm_partner_norm$norm <- m_acc_labelall.mm_partner_norm$c_norm + mean(acc_multinomial$norm , na.rm=TRUE)
+
+#m_acc_all.mm_trainingorder <- m_acc_all.mm_trainingorder %>% 
+#  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ #"matched",
+#                           test_partner == 'B' & produced_label == 'label_B' ~ #"matched",
+#                           test_partner == 'A' & produced_label == 'label_B' ~ #"non-matched",
+#                           test_partner == 'B' & produced_label == 'label_A' ~ #"non-matched",
+#                           produced_label == 'other' ~ 'other'))
+
+# visualize marginal means
+pdf("output_figures/LEALCO-BEH2_acc_lmm_marginal_labelall_partner_norm_pointplot.pdf")
+tt <- ggplot(m_acc_labelall.mm_partner_norm, aes(y=emmean_untrans, x=norm, group=produced_label, col=produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(0.05), size=3) +
+  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.1, position=position_dodge(.05)) +
+  labs(y="Precedent maintenance\n(proportion)", x="Naming Norms") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,1) +
+  facet_wrap(~test_partner)
+tt
+dev.off()
+tt
+```
+
+### \> Post-hoc / marginal means (Traaining Order x Naming Norms)
+
+```{r}
+# ========= LABEL A ========
+
+# make post-hoc with no correction
+m_acc_labelA.emm_none_trainingorder_norm <-emmeans(m_acc_labelA@model, pairwise ~ c_norm * training_order, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
+
+m_acc_labelA.ph_none_trainingorder_norm <- as.data.frame(m_acc_labelA.emm_none_trainingorder_norm$contrasts)
+write.csv(m_acc_labelA.ph_none_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_labelA_ph_none_trainingorder_norm.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelA.mm_trainingorder_norm <- as.data.frame(m_acc_labelA.emm_none_trainingorder_norm$emmeans)
+m_acc_labelA.mm_trainingorder_norm$emmean_untrans <- plogis(m_acc_labelA.mm_trainingorder_norm$emmean)
+m_acc_labelA.mm_trainingorder_norm$asymp.LCL_untrans <- plogis(m_acc_labelA.mm_trainingorder_norm$asymp.LCL)
+m_acc_labelA.mm_trainingorder_norm$asymp.UCL_untrans <- plogis(m_acc_labelA.mm_trainingorder_norm$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelA.mm_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelA_trainingorder_norm.csv", row.names = FALSE)
+
+# ========= LABEL B ========
+
+# make post-hoc with no correction
+m_acc_labelB.emm_none_trainingorder_norm <-emmeans(m_acc_labelB@model, pairwise ~ c_norm * training_order, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
+m_acc_labelB.ph_none_trainingorder_norm <- as.data.frame(m_acc_labelB.emm_none_trainingorder_norm$contrasts)
+write.csv(m_acc_labelB.ph_none_trainingorder_testpartner,"output_stats/LEALCO-BEH2_acc_labelB_ph_none_trainingorder_norm.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelB.mm_trainingorder_norm <- as.data.frame(m_acc_labelB.emm_none_trainingorder_norm$emmeans)
+m_acc_labelB.mm_trainingorder_norm$emmean_untrans <- plogis(m_acc_labelB.mm_trainingorder_norm$emmean)
+m_acc_labelB.mm_trainingorder_norm$asymp.LCL_untrans <- plogis(m_acc_labelB.mm_trainingorder_norm$asymp.LCL)
+m_acc_labelB.mm_trainingorder_norm$asymp.UCL_untrans <- plogis(m_acc_labelB.mm_trainingorder_norm$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelB.mm_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelB_trainingorder_norm.csv", row.names = FALSE)
+
+# ========= LABEL OTHER ========
+# This we cannot do with the variable "Label Other" because c_norm was notint he model.
+
+# ======== visualize =========
+
+m_acc_labelA.mm_trainingorder_norm$produced_label <- 'label_A'
+m_acc_labelB.mm_trainingorder_norm$produced_label <- 'label_B'
+
+m_acc_labelall.mm_trainingorder_norm <- rbind(m_acc_labelA.mm_trainingorder_norm, m_acc_labelB.mm_trainingorder_norm)
+
+m_acc_labelall.mm_trainingorder_norm$norm <- m_acc_labelall.mm_trainingorder_norm$c_norm + mean(acc_multinomial$norm , na.rm=TRUE)
+
+#m_acc_all.mm_trainingorder <- m_acc_all.mm_trainingorder %>% 
+#  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ #"matched",
+#                           test_partner == 'B' & produced_label == 'label_B' ~ #"matched",
+#                           test_partner == 'A' & produced_label == 'label_B' ~ #"non-matched",
+#                           test_partner == 'B' & produced_label == 'label_A' ~ #"non-matched",
+#                           produced_label == 'other' ~ 'other'))
+
+# visualize marginal means
+pdf("output_figures/LEALCO-BEH2_acc_lmm_marginal_labelall_trainingorder_norm_pointplot.pdf")
+tt <- ggplot(m_acc_labelall.mm_trainingorder_norm, aes(y=emmean_untrans, x=norm, group=produced_label, col=produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(0.05), size=3) +
+  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.1, position=position_dodge(.05)) +
+  labs(y="Precedent maintenance\n(proportion)", x="Naming Norms") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,1) +
+  facet_wrap(~training_order)
+tt
+dev.off()
+tt
+```
+
+### \> Post-hoc / marginal means (Test Partner x Training Order x Naming Norms)
+
+This is just to better understand the data, but it is not a follow up on any significant interaction.
+
+```{r}
+# ========= LABEL A ========
+
+# make post-hoc with no correction
+m_acc_labelA.emm_none_partner_trainingorder_norm <-emmeans(m_acc_labelA@model, pairwise ~ c_norm * training_order * test_partner, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
+
+m_acc_labelA.ph_none_partner_trainingorder_norm <- as.data.frame(m_acc_labelA.emm_none_partner_trainingorder_norm$contrasts)
+write.csv(m_acc_labelA.ph_none_partner_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_labelA_ph_none__partner_trainingorder_norm.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelA.mm__partner_trainingorder_norm <- as.data.frame(m_acc_labelA.emm_none_partner_trainingorder_norm$emmeans)
+m_acc_labelA.mm__partner_trainingorder_norm$emmean_untrans <- plogis(m_acc_labelA.mm__partner_trainingorder_norm$emmean)
+m_acc_labelA.mm__partner_trainingorder_norm$asymp.LCL_untrans <- plogis(m_acc_labelA.mm__partner_trainingorder_norm$asymp.LCL)
+m_acc_labelA.mm__partner_trainingorder_norm$asymp.UCL_untrans <- plogis(m_acc_labelA.mm__partner_trainingorder_norm$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelA.mm__partner_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelA__partner_trainingorder_norm.csv", row.names = FALSE)
+
+# ========= LABEL B ========
+
+
+# make post-hoc with no correction
+m_acc_labelB.emm_none_partner_trainingorder_norm <-emmeans(m_acc_labelB@model, pairwise ~ c_norm * training_order * test_partner, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.25, 0.5, 0.75, 0.9, 0.95)))
+
+m_acc_labelB.ph_none_partner_trainingorder_norm <- as.data.frame(m_acc_labelA.emm_none_partner_trainingorder_norm$contrasts)
+write.csv(m_acc_labelB.ph_none_partner_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_labelB_ph_none__partner_trainingorder_norm.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_labelB.mm__partner_trainingorder_norm <- as.data.frame(m_acc_labelB.emm_none_partner_trainingorder_norm$emmeans)
+m_acc_labelB.mm__partner_trainingorder_norm$emmean_untrans <- plogis(m_acc_labelB.mm__partner_trainingorder_norm$emmean)
+m_acc_labelB.mm__partner_trainingorder_norm$asymp.LCL_untrans <- plogis(m_acc_labelB.mm__partner_trainingorder_norm$asymp.LCL)
+m_acc_labelB.mm__partner_trainingorder_norm$asymp.UCL_untrans <- plogis(m_acc_labelB.mm__partner_trainingorder_norm$asymp.UCL)
+
+# save them
+write.csv(m_acc_labelB.mm__partner_trainingorder_norm,"output_stats/LEALCO-BEH2_acc_lmm_marginalMeans_labelB__partner_trainingorder_norm.csv", row.names = FALSE)
+
+# ========= LABEL OTHER ========
+# This we cannot do with the variable "Label Other" because c_norm was notint he model.
+
+# ======== visualize =========
+
+m_acc_labelA.mm__partner_trainingorder_norm$produced_label <- 'label_A'
+m_acc_labelB.mm__partner_trainingorder_norm$produced_label <- 'label_B'
+
+m_acc_labelall.mm_partner_trainingorder_norm <- rbind(m_acc_labelA.mm__partner_trainingorder_norm, m_acc_labelB.mm__partner_trainingorder_norm)
+
+m_acc_labelall.mm_partner_trainingorder_norm$norm <- m_acc_labelall.mm_partner_trainingorder_norm$c_norm + mean(acc_multinomial$norm , na.rm=TRUE)
+
+#m_acc_all.mm_trainingorder <- m_acc_all.mm_trainingorder %>% 
+#  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ #"matched",
+#                           test_partner == 'B' & produced_label == 'label_B' ~ #"matched",
+#                           test_partner == 'A' & produced_label == 'label_B' ~ #"non-matched",
+#                           test_partner == 'B' & produced_label == 'label_A' ~ #"non-matched",
+#                           produced_label == 'other' ~ 'other'))
+
+# visualize marginal means
+pdf("output_figures/LEALCO-BEH2_acc_lmm_marginal_labelall_partner_trainingorder_norm_pointplot.pdf")
+tt <- ggplot(m_acc_labelall.mm_partner_trainingorder_norm, aes(y=emmean_untrans, x=norm, group=produced_label, col=produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(0.05), size=3) +
+  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.1, position=position_dodge(.05)) +
+  labs(y="Precedent maintenance\n(proportion)", x="Naming Norms") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,1) +
+  facet_wrap(~training_order~test_partner)
+tt
+dev.off()
+tt
+```
+
+## Naming latencies at correct trials
+
+### By Subject (congruency)
+
+Here we just have a simple look at naming latencies, while considering only trials that are correct. In a first moment, we just examine naming latencies in their native format, that is without any type of normalization for approximating normality. Note that the data is right-skewed, expected for latency data.
+
+```{r}
+# aggregate
+vot_wSubj_congruency <- data_2labels %>%
+  filter(error =='correct') %>%
+  filter(!subjID %in%  exclusion_vot) %>%
+  group_by(subjID, correct) %>%
+  summarise(mean = mean(VOT), sd=sd(VOT), sem=(sd(VOT)/sqrt((length(VOT)))), n=length(VOT))
+
+# save
+write.csv(vot_wSubj_congruency, "output_stats/LEALCO-BEH2_voz_withinSubjects_congruent.csv", row.names = FALSE)
+
+# plot (within subject)
+pdf("output_figures/LEALCO-BEH2_vot_withinSubjects_congruent_barplot.pdf")
+a <- ggplot(vot_wSubj_congruency, aes(y=mean, x=correct, fill=correct)) + 
+  geom_bar(stat="identity", color = "black", position=position_dodge()) +
+  scale_fill_manual(values = pal3) +
+  labs(y="Naming latencies (ms)", x="Label Type") +
+  geom_errorbar(aes(ymin=mean-sem, ymax=mean+sem), width=.2, position=position_dodge(.9)) +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  ylim(0,NA) +
+  facet_wrap(~subjID)
+a
+dev.off() 
+a
+```
+
+```{r}
+# aggregte (between subject)
+vot_bSubj_congruency <- vot_wSubj_congruency %>%
+  group_by(correct) %>%
+  summarise(mean_bSubj = mean(mean), sd_bSubj=sd(mean), sem_bSubj=(sd(mean)/sqrt((length(mean)))), n_bSubj=length(mean))
+
+# save
+write.csv(acc_bSubj_congruency, "output_stats/LEALCO-BEH2_vot_betweenSubjects_congruency.csv", row.names = FALSE)
+
+# plot (within subject)
+pdf("output_figures/LEALCO-BEH2_vot_betweenSubjects_congruency_barplot.pdf")
+c <- ggplot(vot_bSubj_congruency, aes(y=mean_bSubj, x=correct, fill=correct)) + 
+  geom_bar(stat="identity", color = "black", position=position_dodge()) +
+  geom_errorbar(aes(ymin=mean_bSubj-sem_bSubj, ymax=mean_bSubj+sem_bSubj), width=.2, position=position_dodge(.9)) +
+  scale_fill_manual(values = pal3) +
+  labs(y="Naming latencies (ms)", x="Label Type") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) +
+  theme(legend.title = element_blank()) +
+  ylim(0,NA)
+c
+dev.off()
+c
+
+# make other more transparent plot
+pdf("output_figures/LEALCO-BEH2_accuracy_betweenSubjects_congruency_pointplot.pdf")
+zz <- ggplot(vot_bSubj_congruency, aes(y=mean_bSubj, x=correct, fill=correct)) + 
+  geom_point(data= vot_wSubj_congruency, aes(y=mean, x=correct, color=correct), stat="identity", position=position_jitterdodge(jitter.width=0.1, dodge.width=.9), size=3) + 
+  scale_colour_manual(values = pal3) +
+    geom_point(stat="identity", color = "black", position=position_dodge(.9), size=3) +
+  geom_errorbar(aes(ymin=mean_bSubj-sem_bSubj, ymax=mean_bSubj+sem_bSubj), width=.2, position=position_dodge(.9)) +
+  labs(y="Naming latencies (ms)", x="Label Type") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) +
+  theme(legend.title = element_blank()) +
+  ylim(0,NA)
+zz
+dev.off()
+zz
+```
+
+### By Subjects (Partner x Label)
+
+```{r}
+# aggregate
+vot_wSubj_partner <- data_2labels %>%
+  filter(error =='correct') %>%
+  filter(!subjID %in%  exclusion_vot) %>%
+  group_by(subjID, test_partner, produced_label, correct) %>%
+  summarise(mean = mean(VOT), sd=sd(VOT), sem=(sd(VOT)/sqrt((length(VOT)))), n=length(VOT))
+
+# save
+write.csv(vot_wSubj_congruency, "output_stats/LEALCO-BEH2_voz_withinSubjects_partner.csv", row.names = FALSE)
+
+# plot (within subject)
+pdf("output_figures/LEALCO-BEH2_vot_withinSubjects_congruent_barplot.pdf")
+a <- ggplot(vot_wSubj_partner, aes(y=mean, x=test_partner, group =produced_label, fill=produced_label)) + 
+  geom_bar(stat="identity", color = "black", position=position_dodge()) +
+  scale_fill_manual(values = pal1) +
+  labs(y="Naming latencies (ms)", x="Label Type") +
+  geom_errorbar(aes(ymin=mean-sem, ymax=mean+sem), width=.2, position=position_dodge(.9)) +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,NA) +
+  geom_text(aes(label = produced_label), vjust = -2.5, position=position_dodge(0.9)) +
+  facet_wrap(~subjID)
+a
+dev.off() 
+a
+```
+
+```{r}
+
+# aggregate (between subject)
+vot_bSubj_partner <- vot_wSubj_partner %>%
+  group_by(test_partner, produced_label, correct) %>%
+  summarise(mean_bSubj = mean(mean), sd_bSubj=sd(mean), sem_bSubj=(sd(mean)/sqrt((length(mean)))), n_bSubj=length(mean))
+
+# save
+write.csv(vot_bSubj_partner, "output_stats/LEALCO-BEH2_vot_betweenSubjects_partner.csv", row.names = FALSE)
+
+# plot (barplot)
+pdf("output_figures/LEALCO-BEH2_vot_betweenSubjects_partner_barplot.pdf")
+c <- ggplot(vot_bSubj_partner, aes(y=mean_bSubj, x=test_partner, group=produced_label,fill=produced_label)) + 
+  geom_bar(stat="identity", color = "black", position=position_dodge()) +
+  scale_fill_manual(values = pal1) +
+  geom_errorbar(aes(ymin=mean_bSubj-sem_bSubj, ymax=mean_bSubj+sem_bSubj), width=.2, position=position_dodge(.9)) +
+  labs(y="Naming latencies (ms)", x="Partner") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) +
+  ylim(0,2700) +
+  geom_text(aes(label = produced_label), vjust = -2.5, position=position_dodge(0.9))
+c
+dev.off()
+c
+
+# plot (raincloud)
+pdf("output_figures/LEALCO-BEH2_vot_betweenSubjects_partner_pointplot.pdf")
+tt <- ggplot(vot_bSubj_partner, aes(y=mean_bSubj, x=test_partner, group=produced_label,fill=produced_label)) +
+  geom_point(data= vot_wSubj_partner, aes(y=mean, x=test_partner, color=correct), stat="identity", position=position_jitterdodge(jitter.width=0.1, dodge.width=.9), size=3) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", color = "black", position=position_dodge(0.9), size=3) +
+  geom_errorbar(aes(ymin=mean_bSubj-sem_bSubj, ymax=mean_bSubj+sem_bSubj), width=.2, position=position_dodge(.9)) +
+  labs(y="Naming latencies (ms)", x="Partner") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) +
+  ylim(0,2700) +
+  geom_text(aes(label = produced_label), vjust = -2.5, position=position_dodge(0.9))
+tt
+dev.off()
+tt
+```
+
+### LMM
+
+Prepare the VOT data for LMMs. Note that we will be running he model on inverted naming latency (1/naming latency). This results in the magnitude of the datapoints being inverted. The estimates of the models have to be read accordingly.
+
+```{r}
+
+# select data
+votINV <- data_2labels %>%
+  filter(error == 'correct') %>%
+  filter(!subjID %in%  exclusion_vot)
+
+# drop levels that are not present in the data
+votINV$produced_label <- droplevels(votINV$produced_label)
+
+# Set sum contrasts for all variables.
+contrasts(votINV$test_partner) <- contr.sum(2)
+contrasts(votINV$produced_label) <- contr.sum(2)
+contrasts(votINV$block)  <- contr.sum(2)
+contrasts(votINV$primacy)  <- contr.sum(2)
+contrasts(votINV$recency)  <- contr.sum(2)
+contrasts(votINV$training_order)  <- contr.sum(2)
+
+# check contrasts
+contrasts(votINV$test_partner)
+contrasts(votINV$produced_label)
+contrasts(votINV$block)
+contrasts(votINV$primacy)
+contrasts(votINV$recency)
+contrasts(votINV$training_order)
+
+# center continious covariates
+votINV <- votINV %>%
+  mutate(c_norm = norm - mean(norm, na.rm=TRUE))
+
+votINV$VOTinv_fact <- votINV$VOTinv * 10000
+```
+
+Try to find the maximally convergent model by using the *buildmer()* approach.
+
+```{r}
+
+# indicate the maximal effect strucutre (both fixed and random) that is motivated based on design & hypotheses
+f <- VOTinv_fact ~ test_partner*produced_label*block * training_order * c_norm +
+     (test_partner*produced_label*block  | subjID) +
+     (test_partner*produced_label*block * training_order  | target_label)
+
+# select the maximal model that still converges
+m_votINV <- buildmer(f,data=votINV,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_votINV)
+
+# save output
+sink("output_stats/LEALCO-BEH2_votINV_lmm.txt")
+print(summary(m_votINV))
+sink()  # returns output to the console
+save_model_to_html(m_votINV@model, 3, 'LEALCO-BEH2_votINV_lmm.html')
+
+```
+
+Make model sanity checks. Everything seems ok.
+
+```{r}
+# qqplot
+pdf("output_figures/LEALCO-BEH2_votINV_lmm_qqplot.pdf")
+qqnorm(residuals(m_votINV))
+dev.off()
+
+# histogram
+pdf("output_figures/LEALCO-BEH2_votINV_lmm_hist.pdf")
+hist(residuals(m_votINV))
+dev.off()
+
+# standardized residuals
+pdf("output_figures/LEALCO-BEH2_votINV_lmm_residuals.pdf")
+plot(residuals(m_votINV))
+dev.off()
+```
+
+### Post-hoc / marginal means (Block)
+
+```{r}
+
+# make post-hoc with no correction
+m_votINV.emm_none_block <-emmeans(m_votINV@model, pairwise ~ block, adjust = "none")
+m_votINV.ph_none_block <- as.data.frame(m_votINV.emm_none_block$contrasts)
+write.csv(m_votINV.ph_none_block,"output_stats/LEALCO-BEH2_votINV_ph_none_block.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_votINV.mm_block <- as.data.frame(m_votINV.emm_none_block$emmeans)
+m_votINV.mm_block$emmean_untrans <- 1/m_votINV.mm_block$emmean
+m_votINV.mm_block$lower.CL_untrans <- 1/m_votINV.mm_block$upper.CL
+m_votINV.mm_block$upper.CL_untrans <- 1/m_votINV.mm_block$lower.CL
+write.csv(m_votINV.mm_block,"output_stats/LEALCO-BE2H_votINV_lmm_marginal_block.csv", row.names = FALSE)
+
+# plot
+pdf("output_figures/LEALCO-BEH2_votINV_lmm_marginal_block_pointplot.pdf")
+tt <- ggplot(m_votINV.mm_block, aes(y=emmean_untrans, x=block)) +
+  #scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(.9), size=3) +
+  geom_errorbar(aes(ymin=lower.CL_untrans, ymax=upper.CL_untrans), width=.2, position=position_dodge(.9)) +
+  labs(y="Naming latencies (ms)", x="Block") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,NA)
+tt
+dev.off()
+tt
+```
+
+### Post-hoc / marginal means for (Partner Type x Norm)
+
+```{r}
+# make post-hoc with tukey correction
+m_votINV.emm_tukey_partner_x_norm <-emmeans(m_votINV@model, pairwise ~ test_partner * c_norm, adjust = "Tukey", cov.reduce = function(x) quantile(x, c(0, 0.5, 1)))
+m_votINV.ph_tukey_partner_x_norm <- as.data.frame(m_votINV.emm_tukey_partner_x_norm$contrasts)
+write.csv(m_votINV.emm_tukey_partner_x_norm,"output_stats/LEALCO-BEH2_votINV_ph_tukey_partner_x_norm.csv", row.names = FALSE)
+
+# make post-hoc with no correction
+m_votINV.emm_none_partner_x_norm <-emmeans(m_votINV@model, pairwise ~ test_partner * c_norm, adjust = "none", cov.reduce = function(x) quantile(x, c(0, 0.5,  1)))
+m_votINV.ph_none_partner_x_norm <- as.data.frame(m_votINV.emm_none_partner_x_norm$contrasts)
+write.csv(m_votINV.emm_none_partner_x_norm,"output_stats/LEALCO-BEH2_votINV_ph_none_partner_x_norm.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_votINV.mm_partner_x_norm <- as.data.frame(m_votINV.emm_tukey_partner_x_norm$emmeans)
+m_votINV.mm_partner_x_norm$emmean_untrans <- 1/m_votINV.mm_partner_x_norm$emmean
+m_votINV.mm_partner_x_norm$lower.CL_untrans <- 1/m_votINV.mm_partner_x_norm$upper.CL
+m_votINV.mm_partner_x_norm$upper.CL_untrans <- 1/m_votINV.mm_partner_x_norm$lower.CL
+write.csv(m_votINV.mm_partner_x_norm,"output_stats/LEALCO-BEH2_votINV_lmm_marginal_partner_x_norm.csv", row.names = FALSE)
+
+# plot
+p <- ggplot(m_votINV.mm_partner_x_norm, aes(x=c_norm, y=emmean_untrans , color=test_partner, group=test_partner)) +
+  geom_point(stat = "identity", position=position_dodge(0.05)) +
+  geom_errorbar(aes(ymin=emmean_untrans-SE, ymax=emmean_untrans+SE), width=.1, position=position_dodge(0.05)) +
+  #geom_ribbon(aes(ymin=LCL, ymax=UCL, fill=partner_type), alpha=.5) +
+  scale_fill_manual(values = pal1) +
+  scale_color_manual(values = pal1) +
+  labs(y="Naming Latencies (ms)", x="Naming Norms (centered)") +
+  #ylim(-4, 20) +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16)) 
+p
+ggsave("output_figures/LEALCO-BEH2_votINV_partner_x_norm_.pdf")
+```
+
+```{r}
+# generate predicted data (but don't plot it yet with emmip)
+(mylist <- list(c_norm=c(min(votINV$c_norm), mean(votINV$c_norm), max(votINV$c_norm)), test_partner=c("A","B")))
+
+(mylist <- list(c_norm=c(seq(min(votINV$c_norm), max(votINV$c_norm), 0.05)), test_partner=c("A","B")))
+
+m_votINV.emm_none_partner_x_norm <- emmip(m_votINV@model, c_norm ~ training_order, at=mylist,CIs=TRUE, plotit=FALSE)
+
+m_votINV.emm_none_trainingorder_x_norm <- emmip(m_votINV@model, c_norm ~ training_order, plotit=FALSE)
+
+m_votINV.emm_none_trainingorder_x_norm
+
+#P200_marginalMeans <- as.data.frame(emm_tukey$emmeans)
+write.csv(P200_marginalMeans,"output_stats/LEALCO-BEH2_votING_lmm_marginal_trainingorder_x_norm.csv", row.names = FALSE)
+
+# plot
+pdf("output_figures/LEALCO-BEH2_votING_lmm_marginal_trainingorder_x_norm.pdf")
+ggplot(m_votINV.emm_none_partner_x_norm, aes(x=c_norm, y=yvar, color=training_order, group=training_order))+
+  geom_line() +
+  geom_ribbon(aes(ymin=LCL, ymax=UCL, fill=training_order), alpha=.5) +
+  scale_fill_manual(values = pal1) +
+  scale_color_manual(values = pal1) +
+  #facet_grid(~block) +
+  labs(y="Naming Latencies (uV)", x="Norms (centered)") +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=16))
+dev.off()
+```
+
+### Post-hoc / marginal means for (Partner Type x Label)
+
+Compute post-hoc tests and export.
+
+```{r}
+# make post-hoc with tukey correction
+m_votINV.emm_tukey_partner_x_label <-emmeans(m_votINV@model, pairwise ~ test_partner * produced_label, adjust = "tukey")
+m_votINV.ph_tukey_partner_x_label <- as.data.frame(m_votINV.emm_tukey_partner_x_label$contrasts)
+write.csv(m_votINV.ph_tukey_partner_x_label,"output_stats/LEALCO-BEH2_votINV_ph_tukey_partner_x_label.csv", row.names = FALSE)
+
+# make post-hoc with no correction
+m_votINV.emm_none_partner_x_label <-emmeans(m_votINV@model, pairwise ~ test_partner * produced_label, adjust = "none")
+m_votINV.ph_none_partner_x_label <- as.data.frame(m_votINV.emm_none_partner_x_label$contrasts)
+m_votINV.ph_none_partner_x_label$p.valueBonf2 = m_votINV.ph_none_partner_x_label$p.value *2
+m_votINV.ph_none_partner_x_label$p.valueBonf4 = m_votINV.ph_none_partner_x_label$p.value *4
+write.csv(m_votINV.ph_none_partner_x_label,"output_stats/LEALCO-BEH2_votINV_ph_none_partner_x_label.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_votINV.mm_partner_x_label <- as.data.frame(m_votINV.emm_none_partner_x_label$emmeans)
+m_votINV.mm_partner_x_label$emmean_untrans <- 1/m_votINV.mm_partner_x_label$emmean
+m_votINV.mm_partner_x_label$lower.CL_untrans <- 1/m_votINV.mm_partner_x_label$upper.CL
+m_votINV.mm_partner_x_label$upper.CL_untrans <- 1/m_votINV.mm_partner_x_label$lower.CL
+m_votINV.mm_partner_x_label <- m_votINV.mm_partner_x_label %>% 
+  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ "match",
+                           test_partner == 'B' & produced_label == 'label_B' ~ "match",
+                           test_partner == 'A' & produced_label == 'label_B' ~ "non-match",
+                           test_partner == 'B' & produced_label == 'label_A' ~ "non-match"))
+write.csv(m_votINV.mm_partner_x_label,"output_stats/LEALCO-BEH2_votINV_lmm_marginal_partner_x_block.csv", row.names = FALSE)
+
+# plot
+tt <- ggplot(m_votINV.mm_partner_x_label, aes(y=emmean_untrans, x=test_partner, group = produced_label, col = produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(.9), size=3) +
+  geom_errorbar(aes(ymin=lower.CL_untrans, ymax=upper.CL_untrans), width=.2, position=position_dodge(.9)) +
+  labs(y="Naming Latencies (ms)", x="Partner") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+ylim(0,2000)
+ggsave("output_figures/LEALCO-BEH2_votINV_lmm_marginal_partner_x_label_pointplot.pdf", width=4.5 , height=3.5)
+tt
+```
+
+## Entrainment analysis
+
+The following analysis examines the reaction between Label Maintenance and (inverted) Naming Latency. This is interesting because there could be a speed accuracy trade-off (i.e. entraining with the partner is cognitively costly) or on the contrary it is possible that entraining with the partner is in fact facilitatory.
+
+#### Version 1: based on inverted naming latencies
+
+```{r}
+# aggregte accuracy (within subject)
+acc_wSubj_match <- acc_wSubj_congruency %>%
+  filter(correct %in% c('matching', 'non-matching'))
+acc_wSubj_match$n <- NULL
+
+# aggregate VOTinv (within subjects) only for correct trials
+votINV_wSubj_match <- data_2labels %>%
+  filter(error == 'correct') %>%
+  filter(!subjID %in%  exclusion_vot) %>%
+  group_by(subjID, correct) %>%
+  summarise(mean_VOTinv = mean(VOTinv), mean_VOT = mean(VOT))
+
+# merge the two DVs in one dataframe
+entrainment_data <- merge(acc_wSubj_match,votINV_wSubj_match,by=c("subjID","correct"))
+
+# pivot from long to wide
+entrainment_data <- entrainment_data %>% 
+  pivot_wider(
+    names_from = correct, 
+    values_from = c(proportion, mean_VOTinv, mean_VOT)
+  )
+
+# calculate entrainment scores (same - different)
+entrainment_data$entrainment_ACC <- entrainment_data$proportion_matching - entrainment_data$`proportion_non-matching`
+entrainment_data$entrainment_VOTinv <- (entrainment_data$mean_VOTinv_matching - entrainment_data$`mean_VOTinv_non-matching`) * 10000
+entrainment_data$entrainment_VOT <- (entrainment_data$mean_VOT_matching - entrainment_data$`mean_VOT_non-matching`)
+
+# correlation
+corr <- cor.test(entrainment_data$entrainment_ACC, entrainment_data$entrainment_VOTinv)
+sink('output_stats/LEALCO-BEH2_entrainment_correlation_VOTinv.txt')
+print(corr)
+sink()
+
+# format for plot
+if (corr$p.value < 0.001) {
+  txt <- paste0('R=', round(corr$estimate, digits = 3), "\np<0.001")
+} else {
+  txt <- paste0('R=', round(corr$estimate, digits = 3), "\np=", round(corr$p.value, digits = 3) )
+}
+
+# scatterplot
+ggplot(entrainment_data, aes(x=entrainment_VOTinv, y=entrainment_ACC)) +
+  geom_point() +
+  stat_smooth(method=lm, fullrange=TRUE, color = 'black') + 
+  geom_hline(yintercept=0, linetype="dotted") +
+  geom_vline(xintercept=0, linetype="dotted") +
+  xlim(-5, 5) +
+  ylim(-1.5, 1.5) + 
+  geom_text(x=2.5, y=-1, label=txt) +
+  xlab('Partner-Specific Naming Latency\n(matching vs. mismatching)') +
+  ylab('Partner-Specific Label Maintenance\n(matching vs. mismatching)') +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=12))
+ggsave("output_figures/LEALCO-BEH2_entrainment_correlation_VOTinv.pdf",  width=6, height=3.5)
+
+
+```
+
+```{r}
+
+# scatterplot
+ggplot(entrainment_data, aes(x=entrainment_VOT, y=entrainment_ACC)) +
+  geom_point() +
+  stat_smooth(method=lm, fullrange=TRUE, color = 'black') + 
+  geom_hline(yintercept=0, linetype="dotted") +
+  geom_vline(xintercept=0, linetype="dotted") +
+  xlim(-2600, 2600) +
+  ylim(-1.5, 1.5) + 
+  xlab('Entrainment NL\n(matching vs. mismatching)') +
+  ylab('Entrainment LM\n(matching vs. mismatching)') +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=12))
+ggsave("output_figures/LEALCO-BEH2_entrainment_correlation_VOTraw.pdf",  width=6, height=3.5)
+
+# correlation
+corr <- cor.test(entrainment_data$entrainment_ACC, entrainment_data$entrainment_VOTinv)
+sink('output_stats/LEALCO-BEH2_entrainment_correlation_VOTraw.txt')
+print(corr)
+sink()
+```
+
+# Session Information
+
+```{r}
+sessionInfo()
+```
