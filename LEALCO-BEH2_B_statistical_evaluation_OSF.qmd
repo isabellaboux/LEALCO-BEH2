@@ -733,7 +733,7 @@ c
 
 ```
 
-## LMM
+## LMM - original submission
 
 Note that our dependent variable (the type of label produced by the subjects) is a categorical variable with 3 levels (label A, label B, other). LMMs are not naturally made to handle DVs with more than 2 levels (but see [here](https://stackoverflow.com/questions/76623653/mixed-effect-multinomial-logistic-regression-model-in-r-non-bayesian-approach) and [here](https://cran.r-project.org/web/packages/multpois/index.html) for possible solutions). For this reason, we run a model where we "drop" the level "other".
 
@@ -775,12 +775,12 @@ Try to find the maximally convergent model by using the *buildmer()* approach.
 
 ```{r}
 # indicate the maximal effect structre (both fixed and random) that is motivated based on design & hypotheses
-f <- produced_label ~ test_partner*block * training_order * c_norm +
-     (test_partner*produced_label*block * training_order | subjID) +
-     (test_partner*produced_label*block * training_order  | target_label)
+f <- produced_label ~ test_partner * block * training_order * c_norm +
+     (test_partner * block | subjID) +
+     (test_partner * block * training_order  | target_label)
 
 # select the maximal model that still converges
-m_acc <- buildmer(f,family=binomial, data=acc_binomial,buildmerControl=buildmerControl(direction='order',
+m_acc2 <- buildmer(f,family=binomial, data=acc_binomial,buildmerControl=buildmerControl(direction='order',
           args=list(control=lmerControl(optimizer='bobyqa'))))
 summary(m_acc)
 
@@ -885,6 +885,200 @@ tt <- ggplot(m_acc.mm_partner, aes(y=emmean_untrans, x=test_partner, group=produ
   theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
   ylim(0,100) 
 ggsave("output_figures/LEALCO-BEH2_acc_binomial_lmm_marginal_labelall_partner_pointplot.pdf", width=4.5
+       , height=3.5)
+tt
+```
+
+### LLM - covariates
+
+```{r}
+# indicate the maximal effect structre (both fixed and random) that is motivated based on design & hypotheses
+f <- produced_label ~ test_partner * block + training_order + c_norm +
+     (test_partner * block | subjID) +
+     (test_partner * block + training_order | target_label)
+
+# select the maximal model that still converges
+m_acc_cov <- buildmer(f,family=binomial, data=acc_binomial,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_acc_cov)
+
+# save to text
+sink("output_stats/LEALCO-BEH2_acc_lmm_covariate.txt")
+print(summary(m_acc_cov))
+sink()
+
+# save to html
+save_model_to_html(m_acc_cov@model, 3 , 'LEALCO-BEH2_acc_lmm_covariate.html')
+
+
+```
+
+### \> Post-hoc / marginal means (Test Partner)
+
+```{r}
+# make post-hoc with no correction
+m_acc_cov.emm_none_partner <-emmeans(m_acc_cov@model, pairwise ~ test_partner, adjust = "none")
+m_acc_cov.ph_none_partner <- as.data.frame(m_acc_cov.emm_none_partner$contrasts)
+write.csv(m_acc_cov.emm_none_partner,"output_stats/LEALCO-BEH2_acc_binomial_ph_none_testpartner_covariate.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_cov.mm_partner <- as.data.frame(m_acc_cov.emm_none_partner$emmeans)
+m_acc_cov.mm_partner$emmean_untrans <- plogis(m_acc_cov.mm_partner$emmean)
+m_acc_cov.mm_partner$asymp.LCL_untrans <- plogis(m_acc_cov.mm_partner$asymp.LCL)
+m_acc_cov.mm_partner$asymp.UCL_untrans <- plogis(m_acc_cov.mm_partner$asymp.UCL)
+
+# furtner process them
+m_acc_cov.mm_partner$produced_label <- 'label_A'
+m_acc_cov.mm_partnerB <- m_acc_cov.mm_partner 
+m_acc_cov.mm_partnerB$produced_label <- 'label_B'
+m_acc_cov.mm_partnerB$emmean_untrans <- 1 - m_acc_cov.mm_partnerB$emmean_untrans
+m_acc_cov.mm_partnerB$asymp.LCL_untrans <- 1 - m_acc_cov.mm_partner$asymp.UCL_untrans
+m_acc_cov.mm_partnerB$asymp.UCL_untrans <- 1 - m_acc_cov.mm_partner$asymp.LCL_untrans
+m_acc_cov.mm_partner <- rbind(m_acc_cov.mm_partner, m_acc_cov.mm_partnerB)
+m_acc_cov.mm_partner$emmean_untrans <- m_acc_cov.mm_partner$emmean_untrans  *100
+m_acc_cov.mm_partner$asymp.LCL_untrans <- m_acc_cov.mm_partner$asymp.LCL_untrans * 100
+m_acc_cov.mm_partner$asymp.UCL_untrans <- m_acc_cov.mm_partner$asymp.UCL_untrans * 100
+
+# save them
+write.csv(m_acc_cov.mm_partner,"output_stats/LEALCO-BEH2_acc_binomial_lmm_marginalMeans_partner_covariate.csv", row.names = FALSE)
+
+# plot
+tt <- ggplot(m_acc_cov.mm_partner, aes(y=emmean_untrans, x=test_partner, group=produced_label, col=produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(.3), size=3) +
+  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.3)) +
+  labs(y="Label Maintenance\n(%)", x="Partner") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,100) 
+ggsave("output_figures/LEALCO-BEH2_acc_binomial_lmm_marginal_labelall_partner_pointplot_covariate.pdf", width=4.5
+       , height=3.5)
+tt
+```
+
+### LLM - essential
+
+```{r}
+# indicate the maximal effect structre (both fixed and random) that is motivated based on design & hypotheses
+f <- produced_label ~ test_partner * block + c_norm +
+     (test_partner * block | subjID) +
+     (test_partner * block | target_label)
+
+# select the maximal model that still converges
+m_acc_ess <- buildmer(f,family=binomial, data=acc_binomial,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_acc_ess)
+
+# save to text
+sink("output_stats/LEALCO-BEH2_acc_lmm_essential.txt")
+print(summary(m_acc_ess))
+sink()
+
+# save to html
+save_model_to_html(m_acc_ess@model, 3 , 'LEALCO-BEH2_acc_lmm_essential.html')
+```
+
+### \> Post-hoc / marginal means (Test Partner)
+
+```{r}
+# make post-hoc with no correction
+m_acc_ess.emm_none_partner <-emmeans(m_acc_ess@model, pairwise ~ test_partner, adjust = "none")
+m_acc_ess.ph_none_partner <- as.data.frame(m_acc_ess.emm_none_partner$contrasts)
+write.csv(m_acc_ess.emm_none_partner,"output_stats/LEALCO-BEH2_acc_binomial_ph_none_testpartner_essential.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_ess.mm_partner <- as.data.frame(m_acc_ess.emm_none_partner$emmeans)
+m_acc_ess.mm_partner$emmean_untrans <- plogis(m_acc_ess.mm_partner$emmean)
+m_acc_ess.mm_partner$asymp.LCL_untrans <- plogis(m_acc_ess.mm_partner$asymp.LCL)
+m_acc_ess.mm_partner$asymp.UCL_untrans <- plogis(m_acc_ess.mm_partner$asymp.UCL)
+
+# furtner process them
+m_acc_ess.mm_partner$produced_label <- 'label_A'
+m_acc_ess.mm_partnerB <- m_acc_ess.mm_partner 
+m_acc_ess.mm_partnerB$produced_label <- 'label_B'
+m_acc_ess.mm_partnerB$emmean_untrans <- 1 - m_acc_ess.mm_partnerB$emmean_untrans
+m_acc_ess.mm_partnerB$asymp.LCL_untrans <- 1 - m_acc_ess.mm_partner$asymp.UCL_untrans
+m_acc_ess.mm_partnerB$asymp.UCL_untrans <- 1 - m_acc_ess.mm_partner$asymp.LCL_untrans
+m_acc_ess.mm_partner <- rbind(m_acc_ess.mm_partner, m_acc_ess.mm_partnerB)
+m_acc_ess.mm_partner$emmean_untrans <- m_acc_ess.mm_partner$emmean_untrans  *100
+m_acc_ess.mm_partner$asymp.LCL_untrans <- m_acc_ess.mm_partner$asymp.LCL_untrans * 100
+m_acc_ess.mm_partner$asymp.UCL_untrans <- m_acc_ess.mm_partner$asymp.UCL_untrans * 100
+
+# save them
+write.csv(m_acc_ess.mm_partner,"output_stats/LEALCO-BEH2_acc_binomial_lmm_marginalMeans_partner_essential.csv", row.names = FALSE)
+
+# plot
+tt <- ggplot(m_acc_ess.mm_partner, aes(y=emmean_untrans, x=test_partner, group=produced_label, col=produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(.3), size=3) +
+  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.3)) +
+  labs(y="Label Maintenance\n(%)", x="Partner") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,100) 
+ggsave("output_figures/LEALCO-BEH2_acc_binomial_lmm_marginal_labelall_partner_pointplot_essential.pdf", width=4.5
+       , height=3.5)
+tt
+```
+
+### LLM - nano
+
+```{r}
+# indicate the maximal effect structre (both fixed and random) that is motivated based on design & hypotheses
+f <- produced_label ~ test_partner * block +
+     (test_partner * block | subjID) +
+     (test_partner * block | target_label)
+
+# select the maximal model that still converges
+m_acc_nano <- buildmer(f,family=binomial, data=acc_binomial,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_acc_nano)
+
+# save to text
+sink("output_stats/LEALCO-BEH2_acc_lmm_nano.txt")
+print(summary(m_acc_nano))
+sink()
+
+# save to html
+save_model_to_html(m_acc_nano@model, 3 , 'LEALCO-BEH2_acc_lmm_nano.html')
+```
+
+### \> Post-hoc / marginal means (Test Partner)
+
+```{r}
+# make post-hoc with no correction
+m_acc_nano.emm_none_partner <-emmeans(m_acc_nano@model, pairwise ~ test_partner, adjust = "none")
+m_acc_nano.ph_none_partner <- as.data.frame(m_acc_nano.emm_none_partner$contrasts)
+write.csv(m_acc_nano.emm_none_partner,"output_stats/LEALCO-BEH2_acc_binomial_ph_none_testpartner_nano.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_acc_nano.mm_partner <- as.data.frame(m_acc_nano.emm_none_partner$emmeans)
+m_acc_nano.mm_partner$emmean_untrans <- plogis(m_acc_nano.mm_partner$emmean)
+m_acc_nano.mm_partner$asymp.LCL_untrans <- plogis(m_acc_nano.mm_partner$asymp.LCL)
+m_acc_nano.mm_partner$asymp.UCL_untrans <- plogis(m_acc_nano.mm_partner$asymp.UCL)
+
+# furtner process them
+m_acc_nano.mm_partner$produced_label <- 'label_A'
+m_acc_nano.mm_partnerB <- m_acc_nano.mm_partner 
+m_acc_nano.mm_partnerB$produced_label <- 'label_B'
+m_acc_nano.mm_partnerB$emmean_untrans <- 1 - m_acc_nano.mm_partnerB$emmean_untrans
+m_acc_nano.mm_partnerB$asymp.LCL_untrans <- 1 - m_acc_nano.mm_partner$asymp.UCL_untrans
+m_acc_nano.mm_partnerB$asymp.UCL_untrans <- 1 - m_acc_nano.mm_partner$asymp.LCL_untrans
+m_acc_nano.mm_partner <- rbind(m_acc_nano.mm_partner, m_acc_nano.mm_partnerB)
+m_acc_nano.mm_partner$emmean_untrans <- m_acc_nano.mm_partner$emmean_untrans  *100
+m_acc_nano.mm_partner$asymp.LCL_untrans <- m_acc_nano.mm_partner$asymp.LCL_untrans * 100
+m_acc_nano.mm_partner$asymp.UCL_untrans <- m_acc_nano.mm_partner$asymp.UCL_untrans * 100
+
+# save them
+write.csv(m_acc_nano.mm_partner,"output_stats/LEALCO-BEH2_acc_binomial_lmm_marginalMeans_partner_nano.csv", row.names = FALSE)
+
+# plot
+tt <- ggplot(m_acc_nano.mm_partner, aes(y=emmean_untrans, x=test_partner, group=produced_label, col=produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(.3), size=3) +
+  geom_errorbar(aes(ymin=asymp.LCL_untrans, ymax=asymp.UCL_untrans), width=.2, position=position_dodge(.3)) +
+  labs(y="Label Maintenance\n(%)", x="Partner") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+  ylim(0,100) 
+ggsave("output_figures/LEALCO-BEH2_acc_binomial_lmm_marginal_labelall_partner_pointplot_nano.pdf", width=4.5
        , height=3.5)
 tt
 ```
@@ -1032,7 +1226,7 @@ dev.off()
 tt
 ```
 
-## LMM
+## LMM - original submission
 
 Prepare the VOT data for LMMs. Note that we will be running he model on inverted naming latency (1/naming latency). This results in the magnitude of the datapoints being inverted. The estimates of the models have to be read accordingly.
 
@@ -1066,7 +1260,8 @@ contrasts(votINV$training_order)
 votINV <- votINV %>%
   mutate(c_norm = norm - mean(norm, na.rm=TRUE))
 
-votINV$VOTinv_fact <- votINV$VOTinv * 10000
+factor <- 10000
+votINV$VOTinv_fact <- votINV$VOTinv * factor
 ```
 
 Try to find the maximally convergent model by using the *buildmer()* approach.
@@ -1074,9 +1269,9 @@ Try to find the maximally convergent model by using the *buildmer()* approach.
 ```{r}
 
 # indicate the maximal effect strucutre (both fixed and random) that is motivated based on design & hypotheses
-f <- VOTinv_fact ~ test_partner*produced_label*block * training_order * c_norm +
-     (test_partner*produced_label*block  | subjID) +
-     (test_partner*produced_label*block * training_order  | target_label)
+f <- VOTinv_fact ~ test_partner * produced_label * block * training_order * c_norm +
+     (test_partner * produced_label * block  | subjID) +
+     (test_partner * produced_label * block * training_order  | target_label)
 
 # select the maximal model that still converges
 m_votINV <- buildmer(f,data=votINV,buildmerControl=buildmerControl(direction='order',
@@ -1121,9 +1316,9 @@ write.csv(m_votINV.ph_none_block,"output_stats/LEALCO-BEH2_votINV_ph_none_block.
 
 # extract and save marginal means
 m_votINV.mm_block <- as.data.frame(m_votINV.emm_none_block$emmeans)
-m_votINV.mm_block$emmean_untrans <- 1/m_votINV.mm_block$emmean
-m_votINV.mm_block$lower.CL_untrans <- 1/m_votINV.mm_block$upper.CL
-m_votINV.mm_block$upper.CL_untrans <- 1/m_votINV.mm_block$lower.CL
+m_votINV.mm_block$emmean_untrans <- 1/(m_votINV.mm_block$emmean / factor)
+m_votINV.mm_block$lower.CL_untrans <- 1/(m_votINV.mm_block$upper.CL / factor)
+m_votINV.mm_block$upper.CL_untrans <- 1/(m_votINV.mm_block$lower.CL / factor)
 write.csv(m_votINV.mm_block,"output_stats/LEALCO-BE2H_votINV_lmm_marginal_block.csv", row.names = FALSE)
 
 # plot
@@ -1155,9 +1350,9 @@ write.csv(m_votINV.emm_none_partner_x_norm,"output_stats/LEALCO-BEH2_votINV_ph_n
 
 # extract and save marginal means
 m_votINV.mm_partner_x_norm <- as.data.frame(m_votINV.emm_tukey_partner_x_norm$emmeans)
-m_votINV.mm_partner_x_norm$emmean_untrans <- 1/m_votINV.mm_partner_x_norm$emmean
-m_votINV.mm_partner_x_norm$lower.CL_untrans <- 1/m_votINV.mm_partner_x_norm$upper.CL
-m_votINV.mm_partner_x_norm$upper.CL_untrans <- 1/m_votINV.mm_partner_x_norm$lower.CL
+m_votINV.mm_partner_x_norm$emmean_untrans <- 1/(m_votINV.mm_partner_x_norm$emmean  / factor)
+m_votINV.mm_partner_x_norm$lower.CL_untrans <- 1/(m_votINV.mm_partner_x_norm$upper.CL / factor)
+m_votINV.mm_partner_x_norm$upper.CL_untrans <- 1/(m_votINV.mm_partner_x_norm$lower.CL / factor)
 write.csv(m_votINV.mm_partner_x_norm,"output_stats/LEALCO-BEH2_votINV_lmm_marginal_partner_x_norm.csv", row.names = FALSE)
 
 # plot
@@ -1187,7 +1382,7 @@ m_votINV.emm_none_trainingorder_x_norm <- emmip(m_votINV@model, c_norm ~ trainin
 m_votINV.emm_none_trainingorder_x_norm
 
 #P200_marginalMeans <- as.data.frame(emm_tukey$emmeans)
-write.csv(P200_marginalMeans,"output_stats/LEALCO-BEH2_votING_lmm_marginal_trainingorder_x_norm.csv", row.names = FALSE)
+write.csv(m_votINV.emm_none_partner_x_norm,"output_stats/LEALCO-BEH2_votING_lmm_marginal_trainingorder_x_norm.csv", row.names = FALSE)
 
 # plot
 pdf("output_figures/LEALCO-BEH2_votING_lmm_marginal_trainingorder_x_norm.pdf")
@@ -1197,7 +1392,7 @@ ggplot(m_votINV.emm_none_partner_x_norm, aes(x=c_norm, y=yvar, color=training_or
   scale_fill_manual(values = pal1) +
   scale_color_manual(values = pal1) +
   #facet_grid(~block) +
-  labs(y="Naming Latencies (uV)", x="Norms (centered)") +
+  labs(y="Naming Latencies", x="Norms (centered)") +
   theme(axis.text=element_text(size=15), axis.title=element_text(size=16))
 dev.off()
 ```
@@ -1219,9 +1414,9 @@ write.csv(m_votINV.ph_none_partner_x_label,"output_stats/LEALCO-BEH2_votINV_ph_n
 
 # extract and save marginal means
 m_votINV.mm_partner_x_label <- as.data.frame(m_votINV.emm_none_partner_x_label$emmeans)
-m_votINV.mm_partner_x_label$emmean_untrans <- 1/m_votINV.mm_partner_x_label$emmean
-m_votINV.mm_partner_x_label$lower.CL_untrans <- 1/m_votINV.mm_partner_x_label$upper.CL
-m_votINV.mm_partner_x_label$upper.CL_untrans <- 1/m_votINV.mm_partner_x_label$lower.CL
+m_votINV.mm_partner_x_label$emmean_untrans <- 1/(m_votINV.mm_partner_x_label$emmean / factor)
+m_votINV.mm_partner_x_label$lower.CL_untrans <- 1/(m_votINV.mm_partner_x_label$upper.CL / factor)
+m_votINV.mm_partner_x_label$upper.CL_untrans <- 1/(m_votINV.mm_partner_x_label$lower.CL / factor)
 m_votINV.mm_partner_x_label <- m_votINV.mm_partner_x_label %>% 
   mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ "match",
                            test_partner == 'B' & produced_label == 'label_B' ~ "match",
@@ -1238,6 +1433,187 @@ tt <- ggplot(m_votINV.mm_partner_x_label, aes(y=emmean_untrans, x=test_partner, 
   theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
 ylim(0,2000)
 ggsave("output_figures/LEALCO-BEH2_votINV_lmm_marginal_partner_x_label_pointplot.pdf", width=4.5 , height=3.5)
+tt
+```
+
+## LMM - covariate
+
+```{r}
+# indicate the maximal effect strucutre (both fixed and random) that is motivated based on design & hypotheses
+f <- VOTinv_fact ~ test_partner * produced_label * block + training_order + c_norm +
+     (test_partner * produced_label * block  | subjID) +
+     (test_partner * produced_label * block + training_order  | target_label)
+
+# select the maximal model that still converges
+m_votINV_cov <- buildmer(f,data=votINV,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_votINV_cov)
+
+# save output
+sink("output_stats/LEALCO-BEH2_votINV_lmm_covariate.txt")
+print(summary(m_votINV_cov))
+sink()  # returns output to the console
+save_model_to_html(m_votINV_cov@model, 3, 'LEALCO-BEH2_votINV_lmm_covariate.html')
+
+```
+
+### \> Post-hoc / marginal means for (Partner Type x Label)
+
+```{r}
+
+# make post-hoc with tukey correction
+m_votINV_cov.emm_tukey_partner_x_label <-emmeans(m_votINV_cov@model, pairwise ~ test_partner * produced_label, adjust = "tukey")
+m_votINV_cov.ph_tukey_partner_x_label <- as.data.frame(m_votINV_cov.emm_tukey_partner_x_label$contrasts)
+write.csv(m_votINV_cov.ph_tukey_partner_x_label,"output_stats/LEALCO-BEH2_votINV_ph_tukey_partner_x_label_covariate.csv", row.names = FALSE)
+
+# make post-hoc with no correction
+m_votINV_cov.emm_none_partner_x_label <-emmeans(m_votINV_cov@model, pairwise ~ test_partner * produced_label, adjust = "none")
+m_votINV_cov.ph_none_partner_x_label <- as.data.frame(m_votINV_cov.emm_none_partner_x_label$contrasts)
+m_votINV_cov.ph_none_partner_x_label$p.valueBonf2 = m_votINV_cov.ph_none_partner_x_label$p.value *2
+m_votINV_cov.ph_none_partner_x_label$p.valueBonf4 = m_votINV_cov.ph_none_partner_x_label$p.value *4
+write.csv(m_votINV_cov.ph_none_partner_x_label,"output_stats/LEALCO-BEH2_votINV_ph_none_partner_x_label_covariate.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_votINV_cov.mm_partner_x_label <- as.data.frame(m_votINV_cov.emm_none_partner_x_label$emmeans)
+m_votINV_cov.mm_partner_x_label$emmean_untrans <- 1/(m_votINV_cov.mm_partner_x_label$emmean / factor)
+m_votINV_cov.mm_partner_x_label$lower.CL_untrans <- 1/(m_votINV_cov.mm_partner_x_label$upper.CL / factor)
+m_votINV_cov.mm_partner_x_label$upper.CL_untrans <- 1/(m_votINV_cov.mm_partner_x_label$lower.CL / factor)
+m_votINV_cov.mm_partner_x_label <- m_votINV_cov.mm_partner_x_label %>% 
+  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ "match",
+                           test_partner == 'B' & produced_label == 'label_B' ~ "match",
+                           test_partner == 'A' & produced_label == 'label_B' ~ "non-match",
+                           test_partner == 'B' & produced_label == 'label_A' ~ "non-match"))
+write.csv(m_votINV_cov.mm_partner_x_label,"output_stats/LEALCO-BEH2_votINV_lmm_marginal_partner_x_block_covariate.csv", row.names = FALSE)
+
+# plot
+tt <- ggplot(m_votINV_cov.mm_partner_x_label, aes(y=emmean_untrans, x=test_partner, group = produced_label, col = produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(.9), size=3) +
+  geom_errorbar(aes(ymin=lower.CL_untrans, ymax=upper.CL_untrans), width=.2, position=position_dodge(.9)) +
+  labs(y="Naming Latencies (ms)", x="Partner") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+ylim(0,2000)
+ggsave("output_figures/LEALCO-BEH2_votINV_lmm_marginal_partner_x_label_pointplot_covariate.pdf", width=4.5 , height=3.5)
+tt
+```
+
+## LMM - essential
+
+```{r}
+# indicate the maximal effect strucutre (both fixed and random) that is motivated based on design & hypotheses
+f <- VOTinv_fact ~ test_partner * produced_label * block + c_norm +
+     (test_partner * produced_label * block  | subjID) +
+     (test_partner * produced_label * block  | target_label)
+
+# select the maximal model that still converges
+m_votINV_ess <- buildmer(f,data=votINV,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_votINV_ess)
+
+# save output
+sink("output_stats/LEALCO-BEH2_votINV_lmm_essential.txt")
+print(summary(m_votINV_ess))
+sink()  # returns output to the console
+save_model_to_html(m_votINV_ess@model, 3, 'LEALCO-BEH2_votINV_lmm_essential.html')
+
+```
+
+### \> Post-hoc / marginal means for (Partner Type x Label)
+
+```{r}
+# make post-hoc with tukey correction
+m_votINV_ess.emm_tukey_partner_x_label <-emmeans(m_votINV_ess@model, pairwise ~ test_partner * produced_label, adjust = "tukey")
+m_votINV_ess.ph_tukey_partner_x_label <- as.data.frame(m_votINV_ess.emm_tukey_partner_x_label$contrasts)
+write.csv(m_votINV_ess.ph_tukey_partner_x_label,"output_stats/LEALCO-BEH2_votINV_ph_tukey_partner_x_label_essential.csv", row.names = FALSE)
+
+# make post-hoc with no correction
+m_votINV_ess.emm_none_partner_x_label <-emmeans(m_votINV_ess@model, pairwise ~ test_partner * produced_label, adjust = "none")
+m_votINV_ess.ph_none_partner_x_label <- as.data.frame(m_votINV_ess.emm_none_partner_x_label$contrasts)
+m_votINV_ess.ph_none_partner_x_label$p.valueBonf2 = m_votINV_ess.ph_none_partner_x_label$p.value *2
+m_votINV_ess.ph_none_partner_x_label$p.valueBonf4 = m_votINV_ess.ph_none_partner_x_label$p.value *4
+write.csv(m_votINV_ess.ph_none_partner_x_label,"output_stats/LEALCO-BEH2_votINV_ph_none_partner_x_label_essential.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_votINV_ess.mm_partner_x_label <- as.data.frame(m_votINV_ess.emm_none_partner_x_label$emmeans)
+m_votINV_ess.mm_partner_x_label$emmean_untrans <- 1/(m_votINV_ess.mm_partner_x_label$emmean / factor)
+m_votINV_ess.mm_partner_x_label$lower.CL_untrans <- 1/(m_votINV_ess.mm_partner_x_label$upper.CL / factor)
+m_votINV_ess.mm_partner_x_label$upper.CL_untrans <- 1/(m_votINV_ess.mm_partner_x_label$lower.CL / factor)
+m_votINV_ess.mm_partner_x_label <- m_votINV_ess.mm_partner_x_label %>% 
+  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ "match",
+                           test_partner == 'B' & produced_label == 'label_B' ~ "match",
+                           test_partner == 'A' & produced_label == 'label_B' ~ "non-match",
+                           test_partner == 'B' & produced_label == 'label_A' ~ "non-match"))
+write.csv(m_votINV_ess.mm_partner_x_label,"output_stats/LEALCO-BEH2_votINV_lmm_marginal_partner_x_block_essential.csv", row.names = FALSE)
+
+# plot
+tt <- ggplot(m_votINV_ess.mm_partner_x_label, aes(y=emmean_untrans, x=test_partner, group = produced_label, col = produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(.9), size=3) +
+  geom_errorbar(aes(ymin=lower.CL_untrans, ymax=upper.CL_untrans), width=.2, position=position_dodge(.9)) +
+  labs(y="Naming Latencies (ms)", x="Partner") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+ylim(0,2000)
+ggsave("output_figures/LEALCO-BEH2_votINV_lmm_marginal_partner_x_label_pointplot_essential.pdf", width=4.5 , height=3.5)
+tt
+```
+
+## LMM - nano
+
+```{r}
+# indicate the maximal effect strucutre (both fixed and random) that is motivated based on design & hypotheses
+f <- VOTinv_fact ~ test_partner * produced_label * block +
+     (test_partner * produced_label * block  | subjID) +
+     (test_partner * produced_label * block  | target_label)
+
+# select the maximal model that still converges
+m_votINV_nano <- buildmer(f,data=votINV,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_votINV_nano)
+
+# save output
+sink("output_stats/LEALCO-BEH2_votINV_lmm_nano.txt")
+print(summary(m_votINV_nano))
+sink()  # returns output to the console
+save_model_to_html(m_votINV_nano@model, 3, 'LEALCO-BEH2_votINV_lmm_nano.html')
+
+```
+
+### \> Post-hoc / marginal means for (Partner Type x Label)
+
+```{r}
+# make post-hoc with tukey correction
+m_votINV_nano.emm_tukey_partner_x_label <-emmeans(m_votINV_nano@model, pairwise ~ test_partner * produced_label, adjust = "tukey")
+m_votINV_nano.ph_tukey_partner_x_label <- as.data.frame(m_votINV_nano.emm_tukey_partner_x_label$contrasts)
+write.csv(m_votINV_nano.ph_tukey_partner_x_label,"output_stats/LEALCO-BEH2_votINV_ph_tukey_partner_x_label_nano.csv", row.names = FALSE)
+
+# make post-hoc with no correction
+m_votINV_nano.emm_none_partner_x_label <-emmeans(m_votINV_nano@model, pairwise ~ test_partner * produced_label, adjust = "none")
+m_votINV_nano.ph_none_partner_x_label <- as.data.frame(m_votINV_nano.emm_none_partner_x_label$contrasts)
+m_votINV_nano.ph_none_partner_x_label$p.valueBonf2 = m_votINV_nano.ph_none_partner_x_label$p.value *2
+m_votINV_nano.ph_none_partner_x_label$p.valueBonf4 = m_votINV_nano.ph_none_partner_x_label$p.value *4
+write.csv(m_votINV_nano.ph_none_partner_x_label,"output_stats/LEALCO-BEH2_votINV_ph_none_partner_x_label_nano.csv", row.names = FALSE)
+
+# extract and save marginal means
+m_votINV_nano.mm_partner_x_label <- as.data.frame(m_votINV_nano.emm_none_partner_x_label$emmeans)
+m_votINV_nano.mm_partner_x_label$emmean_untrans <- 1/(m_votINV_nano.mm_partner_x_label$emmean / factor)
+m_votINV_nano.mm_partner_x_label$lower.CL_untrans <- 1/(m_votINV_nano.mm_partner_x_label$upper.CL / factor)
+m_votINV_nano.mm_partner_x_label$upper.CL_untrans <- 1/(m_votINV_nano.mm_partner_x_label$lower.CL / factor)
+m_votINV_nano.mm_partner_x_label <- m_votINV_nano.mm_partner_x_label %>% 
+  mutate(match = case_when(test_partner == 'A' & produced_label == 'label_A' ~ "match",
+                           test_partner == 'B' & produced_label == 'label_B' ~ "match",
+                           test_partner == 'A' & produced_label == 'label_B' ~ "non-match",
+                           test_partner == 'B' & produced_label == 'label_A' ~ "non-match"))
+write.csv(m_votINV_nano.mm_partner_x_label,"output_stats/LEALCO-BEH2_votINV_lmm_marginal_partner_x_block_nano.csv", row.names = FALSE)
+
+# plot
+tt <- ggplot(m_votINV_nano.mm_partner_x_label, aes(y=emmean_untrans, x=test_partner, group = produced_label, col = produced_label)) +
+  scale_colour_manual(values = pal1) +
+  geom_point(stat="identity", position=position_dodge(.9), size=3) +
+  geom_errorbar(aes(ymin=lower.CL_untrans, ymax=upper.CL_untrans), width=.2, position=position_dodge(.9)) +
+  labs(y="Naming Latencies (ms)", x="Partner") +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=16)) +
+ylim(0,2000)
+ggsave("output_figures/LEALCO-BEH2_votINV_lmm_marginal_partner_x_label_pointplot_nano.pdf", width=4.5 , height=3.5)
 tt
 ```
 
@@ -1299,6 +1675,51 @@ ggplot(entrainment_data, aes(x=entrainment_VOTinv, y=entrainment_ACC)) +
   ylab('Partner-Specific Label Maintenance\n(matching vs. mismatching)') +
   theme(axis.text=element_text(size=12), axis.title=element_text(size=12))
 ggsave("output_figures/LEALCO-BEH2_entrainment_correlation_VOTinv.pdf",  width=6, height=3.5)
+```
+
+Also carry out the **percentage bend** **correlation** (Wilcox, 1994) and the **skipped Pearson correlation** (Wilcox, 2004).
+
+```{r}
+
+dat <- entrainment_data[, c("entrainment_ACC", "entrainment_VOTinv")]
+
+
+# Percentage-bend correlation (Wilcox, 1994)
+pb <- matrixCorr::pbcor(
+  dat,
+  beta = 0.20,
+  ci = TRUE,
+  p_value = TRUE,
+  n_boot = 2000,
+  seed = 123
+)
+
+# Skipped Pearson correlation (Wilcox, 2004)
+sk <- matrixCorr::skipped_corr(
+  dat,
+  method = "pearson",
+  ci = TRUE,
+  p_value = TRUE,
+  n_boot = 2000,
+  seed = 123,
+  return_masks = TRUE
+)
+
+# View results
+summary(pb)
+sink('output_stats/LEALCO-BEH2_entrainment_correlationPB_invVOT.txt')
+print(summary(pb))
+sink()
+
+summary(sk)
+sink('output_stats/LEALCO-BEH2_entrainment_correlationSK_invVOT.txt')
+print(summary(sk))
+sink()
+
+# Identify observations excluded from
+# the skipped correlation
+matrixCorr::skipped_corr_masks(sk, "entrainment_ACC", "entrainment_VOTinv")
+
 ```
 
 # Session Information

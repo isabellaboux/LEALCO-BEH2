@@ -1,7 +1,8 @@
 Linear mixed model fit by REML
 (p-values based on Wald z-scores) ['lmerMod']
-Formula: VOTinv_fact ~ 1 + c_norm + block + training_order + test_partner +      c_norm:test_partner + c_norm:training_order + training_order:test_partner +      c_norm:training_order:test_partner + block:test_partner +  
-    c_norm:block + c_norm:block:test_partner + produced_label +      test_partner:produced_label + training_order:produced_label +      c_norm:produced_label + c_norm:test_partner:produced_label +  
+Formula: VOTinv_fact ~ 1 + c_norm + block + training_order + test_partner +      c_norm:test_partner + c_norm:training_order + training_order:test_partner +  
+    c_norm:training_order:test_partner + block:test_partner +      c_norm:block + c_norm:block:test_partner + produced_label +  
+    test_partner:produced_label + training_order:produced_label +      c_norm:produced_label + c_norm:test_partner:produced_label +  
     c_norm:training_order:produced_label + training_order:test_partner:produced_label +      c_norm:training_order:test_partner:produced_label + block:produced_label +  
     block:test_partner:produced_label + block:training_order +      block:training_order:test_partner + c_norm:block:training_order +  
     block:training_order:produced_label + block:training_order:test_partner:produced_label +      c_norm:block:training_order:test_partner + c_norm:block:produced_label +  
@@ -9,8 +10,9 @@ Formula: VOTinv_fact ~ 1 + c_norm + block + training_order + test_partner +     
     (1 + test_partner + produced_label + test_partner:produced_label |          target_label) + (1 + produced_label + test_partner |      subjID)
    Data: votINV
 Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,      calc.derivs = TRUE, use.last.params = FALSE, checkControl = list( 
-        check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",          check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",          check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",  
-        check.scaleX = "warning", check.formula.LHS = "stop"),      checkConv = list(check.conv.grad = list(action = "warning",          tol = 0.002, relTol = NULL), check.conv.singular = list( 
+        check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",          check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",  
+        check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",          check.scaleX = "warning", check.formula.LHS = "stop"),  
+    checkConv = list(check.conv.grad = list(action = "warning",          tol = 0.002, relTol = NULL), check.conv.singular = list( 
         action = "message", tol = 1e-04), check.conv.hess = list(         action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  "merControl"))
 
 REML criterion at convergence: 6716.9

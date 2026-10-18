@@ -1,0 +1,52 @@
+Linear mixed model fit by REML
+(p-values based on Wald z-scores) ['lmerMod']
+Formula: VOTinv_fact ~ 1 + block + test_partner + produced_label + test_partner:produced_label +  
+    block:test_partner + block:produced_label + block:test_partner:produced_label +      (1 + test_partner + produced_label + test_partner:produced_label |  
+        target_label) + (1 + produced_label + test_partner |      subjID)
+   Data: votINV
+Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,      calc.derivs = TRUE, use.last.params = FALSE, checkControl = list( 
+        check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",          check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",  
+        check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",          check.scaleX = "warning", check.formula.LHS = "stop"),  
+    checkConv = list(check.conv.grad = list(action = "warning",          tol = 0.002, relTol = NULL), check.conv.singular = list( 
+        action = "message", tol = 1e-04), check.conv.hess = list(         action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  "merControl"))
+
+REML criterion at convergence: 6766.4
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-3.4810 -0.6454  0.0266  0.6304  2.7185 
+
+Random effects:
+ Groups       Name                          Variance Std.Dev. Corr             
+ target_label (Intercept)                   1.42658  1.1944                    
+              test_partner1                 0.08598  0.2932   -0.04            
+              produced_label1               0.05554  0.2357    0.41 -0.66      
+              test_partner1:produced_label1 0.33671  0.5803   -0.66  0.16 -0.51
+ subjID       (Intercept)                   0.37109  0.6092                    
+              produced_label1               0.06043  0.2458   -0.25            
+              test_partner1                 0.04732  0.2175   -0.29 -0.74      
+ Residual                                   3.07854  1.7546                    
+Number of obs: 1612, groups:  target_label, 140; subjID, 26
+
+Fixed effects:
+                                      Estimate Std. Error t value Pr(>|t|)    
+(Intercept)                           6.341254   0.173757  36.495  < 2e-16 ***
+block1                               -0.405197   0.054127  -7.486  7.1e-14 ***
+test_partner1                         0.037864   0.085218   0.444  0.65681    
+produced_label1                      -0.026561   0.087739  -0.303  0.76210    
+test_partner1:produced_label1         0.285915   0.092311   3.097  0.00195 ** 
+block1:test_partner1                  0.038294   0.053877   0.711  0.47723    
+block1:produced_label1               -0.009291   0.054111  -0.172  0.86368    
+block1:test_partner1:produced_label1  0.080651   0.054329   1.485  0.13768    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) block1 tst_p1 prdc_1 t_1:_1 blck1:t_1 blck1:p_1
+block1      -0.010                                                
+test_prtnr1 -0.151 -0.005                                         
+prodcd_lbl1  0.006  0.009 -0.704                                  
+tst_prt1:_1 -0.477  0.025  0.112 -0.138                           
+blck1:tst_1  0.001 -0.068 -0.007  0.015  0.000                    
+blck1:prd_1  0.000  0.075  0.012 -0.008  0.010 -0.575             
+blck1:_1:_1  0.012 -0.578  0.007 -0.003 -0.015  0.075    -0.064   
