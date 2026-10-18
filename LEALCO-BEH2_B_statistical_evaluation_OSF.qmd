@@ -769,6 +769,8 @@ contrasts(acc_binomial$training_order)
 # center continious covariates
 acc_binomial <- acc_binomial %>%
   mutate(c_norm = norm - mean(norm, na.rm=TRUE))
+acc_binomial <- acc_binomial %>%
+  mutate(c_similarity = similarity - mean(similarity, na.rm=TRUE))
 ```
 
 Try to find the maximally convergent model by using the *buildmer()* approach.
@@ -1083,6 +1085,28 @@ ggsave("output_figures/LEALCO-BEH2_acc_binomial_lmm_marginal_labelall_partner_po
 tt
 ```
 
+### LLM - essential (+ similarity)
+
+```{r}
+# indicate the maximal effect structre (both fixed and random) that is motivated based on design & hypotheses
+f <- produced_label ~ test_partner * block * c_similarity + c_norm + 
+     (test_partner * block * c_similarity| subjID) +
+     (test_partner * block | target_label)
+
+# select the maximal model that still converges
+m_acc_ess_sim <- buildmer(f,family=binomial, data=acc_binomial,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_acc_ess_sim)
+
+# save to text
+sink("output_stats/LEALCO-BEH2_acc_lmm_essential+sim.txt")
+print(summary(m_acc_ess_sim))
+sink()
+
+# save to html
+save_model_to_html(m_acc_ess_sim@model, 3 , 'LEALCO-BEH2_acc_lmm_essential+sim.html')
+```
+
 # Naming Latencies (at correct trials)
 
 ## Descriptive analysis
@@ -1259,7 +1283,10 @@ contrasts(votINV$training_order)
 # center continuous covariates
 votINV <- votINV %>%
   mutate(c_norm = norm - mean(norm, na.rm=TRUE))
+votINV <- votINV %>%
+  mutate(c_similarity = similarity - mean(similarity, na.rm=TRUE))
 
+# multiply inverted latencies by an factor for numerical stability
 factor <- 10000
 votINV$VOTinv_fact <- votINV$VOTinv * factor
 ```
@@ -1616,6 +1643,29 @@ ylim(0,2000)
 ggsave("output_figures/LEALCO-BEH2_votINV_lmm_marginal_partner_x_label_pointplot_nano.pdf", width=4.5 , height=3.5)
 tt
 ```
+
+### LLM - essential (+similarity)
+
+```{r}
+# indicate the maximal effect strucutre (both fixed and random) that is motivated based on design & hypotheses
+f <- VOTinv_fact ~ test_partner * produced_label * block * c_similarity + c_norm +
+     (test_partner * produced_label * block * c_similarity   | subjID) +
+     (test_partner * produced_label * block  | target_label)
+
+# select the maximal model that still converges
+m_votINV_ess_sim <- buildmer(f,data=votINV,buildmerControl=buildmerControl(direction='order',
+          args=list(control=lmerControl(optimizer='bobyqa'))))
+summary(m_votINV_ess_sim)
+
+# save output
+sink("output_stats/LEALCO-BEH2_votINV_lmm_essential+sim.txt")
+print(summary(m_votINV_ess_sim))
+sink()  # returns output to the console
+save_model_to_html(m_votINV_ess_sim@model, 3, 'LEALCO-BEH2_votINV_lmm_essential+sim.html')
+
+```
+
+###  
 
 ## Entrainment analysis
 

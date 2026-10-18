@@ -1,0 +1,51 @@
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation)
+(p-values based on Wald z-scores) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: produced_label ~ 1 + test_partner + c_similarity + test_partner:c_similarity +      c_norm + block + c_similarity:block + test_partner:block +  
+    test_partner:c_similarity:block + (1 + test_partner | target_label) +      (1 + test_partner | subjID)
+   Data: acc_binomial
+Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,      calc.derivs = TRUE, use.last.params = FALSE, checkControl = list( 
+        check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",          check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",  
+        check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",          check.scaleX = "warning", check.formula.LHS = "stop"),  
+    checkConv = list(check.conv.grad = list(action = "warning",          tol = 0.002, relTol = NULL), check.conv.singular = list( 
+        action = "message", tol = 1e-04), check.conv.hess = list(         action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  "merControl"))
+
+     AIC      BIC   logLik deviance df.resid 
+  1420.4   1501.1   -695.2   1390.4     1597 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-3.7520 -0.3194 -0.1157  0.3098  5.7656 
+
+Random effects:
+ Groups       Name          Variance Std.Dev. Corr
+ target_label (Intercept)   1.383    1.1761       
+              test_partner1 3.351    1.8305   0.12
+ subjID       (Intercept)   0.379    0.6156       
+              test_partner1 1.146    1.0707   0.48
+Number of obs: 1612, groups:  target_label, 140; subjID, 26
+
+Fixed effects:
+                                   Estimate Std. Error   z value Pr(>|z|) Pr(>|t|)    
+(Intercept)                        0.007393   0.239619  0.030854    0.975   0.9754    
+test_partner1                      2.383753   0.318772  7.477930    0.000 7.55e-14 ***
+c_similarity                      -2.169712   1.028701 -2.109177    0.035   0.0349 *  
+c_norm                             0.424485   0.448580  0.946286    0.344   0.3440    
+block1                            -0.048997   0.080089 -0.611781    0.541   0.5407    
+test_partner1:c_similarity        -1.026091   1.323583 -0.775237    0.438   0.4382    
+c_similarity:block1               -0.530936   0.551519 -0.962679    0.336   0.3357    
+test_partner1:block1              -0.079806   0.080130 -0.995961    0.319   0.3193    
+test_partner1:c_similarity:block1 -0.549893   0.551557 -0.996985    0.319   0.3188    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) tst_p1 c_smlr c_norm block1 ts_1:_ c_sm:1 ts_1:1
+test_prtnr1  0.189                                                 
+c_similarty -0.007 -0.078                                          
+c_norm       0.076  0.096 -0.051                                   
+block1      -0.032 -0.011 -0.024 -0.016                            
+tst_prtn1:_ -0.069 -0.009  0.058 -0.002 -0.003                     
+c_smlrty:b1 -0.033 -0.018  0.004 -0.020 -0.023  0.019              
+tst_prtn1:1 -0.017 -0.026  0.001 -0.036  0.040 -0.018 -0.051       
+tst_pr1:_:1 -0.023 -0.024  0.025 -0.017 -0.052  0.005  0.010 -0.022
