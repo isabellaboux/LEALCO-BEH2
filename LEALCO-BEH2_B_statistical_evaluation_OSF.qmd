@@ -17,6 +17,7 @@ The output file is a large .csv table containing the entire data of the file in 
 # Load packages
 
 ```{r}
+library(matrixCorr)
 library(dplyr)
 library(tidyverse)
 library(lme4)
@@ -49,6 +50,7 @@ Read files:
 data <- read.csv('data/LEALCO-BEH2_test_merged_data.csv')
 norms <- read.csv('data/LEALCO-BEH2_test_merged_naming_norms.csv')
 demo <- read.csv('data/demographic/LEALCO-BEH2_demographics_data_test470046_2025-07-15_15-29.csv',  sep = ";", fileEncoding = "Latin1", check.names = F)
+cs <- read.csv('data/cosine_similarity/LEALCO-BEH2_semantic_similarity_results.csv')
 ```
 
 Clean-up variables names and type.
@@ -118,6 +120,11 @@ data <- left_join(
   data,
   norms[norms$name != 'other',],
   by = c('exact_produced_label'))
+
+data <- left_join(
+  data,
+  cs,
+  by = join_by(target_stimID.x == stimCODE))
 
 ```
 
@@ -455,6 +462,20 @@ overview_bSubj <- overview_wSubj %>%
 
 # save
 write.csv(overview_bSubj, "output_stats/LEALCO-BEH2_trial_overview.csv")
+
+```
+
+# Overview of cosine similarity between label pairs
+
+```{r}
+pdf("output_figures/LEALCO-BEH2_cosine_similarity.pdf")
+f <- hist(
+  data$similarity[data$class.y == 'double_label'],
+  xlim = c(-0.2, 1),
+  main = "",
+  xlab = "Cosine similarity four double-label items"
+)
+dev.off()
 
 ```
 
