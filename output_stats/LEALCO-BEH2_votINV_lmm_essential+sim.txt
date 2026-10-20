@@ -1,0 +1,55 @@
+Linear mixed model fit by REML
+(p-values based on Wald z-scores) ['lmerMod']
+Formula: VOTinv_fact ~ 1 + c_norm + block + c_similarity + test_partner +      block:c_similarity + c_similarity:test_partner + produced_label +  
+    test_partner:produced_label + block:produced_label + c_similarity:produced_label +  
+    c_similarity:test_partner:produced_label + block:c_similarity:produced_label +  
+    block:test_partner + block:c_similarity:test_partner + block:test_partner:produced_label +  
+    block:c_similarity:test_partner:produced_label + (1 + test_partner +      produced_label + test_partner:produced_label | target_label) +  
+    (1 + produced_label + test_partner | subjID)
+   Data: votINV
+Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,  
+    calc.derivs = TRUE, use.last.params = FALSE, checkControl = list(         check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",  
+        check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",          check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",  
+        check.scaleX = "warning", check.formula.LHS = "stop"),      checkConv = list(check.conv.grad = list(action = "warning",  
+        tol = 0.002, relTol = NULL), check.conv.singular = list(         action = "message", tol = 1e-04), check.conv.hess = list( 
+        action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  "merControl"))
+
+REML criterion at convergence: 6671.5
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-3.4314 -0.6180  0.0548  0.6508  2.7322 
+
+Random effects:
+ Groups       Name                          Variance Std.Dev. Corr             
+ target_label (Intercept)                   0.85066  0.9223                    
+              test_partner1                 0.08101  0.2846    0.11            
+              produced_label1               0.04881  0.2209    0.31 -0.59      
+              test_partner1:produced_label1 0.09875  0.3142   -0.78  0.42 -0.66
+ subjID       (Intercept)                   0.35742  0.5978                    
+              produced_label1               0.07691  0.2773   -0.22            
+              test_partner1                 0.05917  0.2433   -0.23 -0.80      
+ Residual                                   3.06489  1.7507                    
+Number of obs: 1612, groups:  target_label, 140; subjID, 26
+
+Fixed effects:
+                                                  Estimate Std. Error t value Pr(>|t|)    
+(Intercept)                                        6.33132    0.15643  40.475  < 2e-16 ***
+c_norm                                             2.50985    0.24838  10.105  < 2e-16 ***
+block1                                            -0.38881    0.05441  -7.146 8.95e-13 ***
+c_similarity                                      -0.81868    0.70949  -1.154   0.2485    
+test_partner1                                      0.04602    0.08516   0.540   0.5889    
+produced_label1                                   -0.03235    0.08865  -0.365   0.7152    
+block1:c_similarity                                0.63146    0.37495   1.684   0.0922 .  
+c_similarity:test_partner1                        -0.45110    0.47214  -0.955   0.3394    
+test_partner1:produced_label1                      0.37483    0.07617   4.921 8.62e-07 ***
+block1:produced_label1                            -0.01681    0.05451  -0.308   0.7578    
+c_similarity:produced_label1                      -0.08104    0.46348  -0.175   0.8612    
+block1:test_partner1                               0.04424    0.05427   0.815   0.4149    
+c_similarity:test_partner1:produced_label1        -0.34262    0.49632  -0.690   0.4900    
+block1:c_similarity:produced_label1                0.65102    0.37581   1.732   0.0832 .  
+block1:c_similarity:test_partner1                 -0.81388    0.37387  -2.177   0.0295 *  
+block1:test_partner1:produced_label1               0.06726    0.05468   1.230   0.2187    
+block1:c_similarity:test_partner1:produced_label1  0.07641    0.37663   0.203   0.8392    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1

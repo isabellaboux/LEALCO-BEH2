@@ -1665,8 +1665,6 @@ save_model_to_html(m_votINV_ess_sim@model, 3, 'LEALCO-BEH2_votINV_lmm_essential+
 
 ```
 
-###  
-
 ## Entrainment analysis
 
 The following analysis examines the reaction between Label Maintenance and (inverted) Naming Latency. This is interesting because there could be a speed accuracy trade-off (i.e. entraining with the partner is cognitively costly) or on the contrary it is possible that entraining with the partner is in fact facilitatory.

@@ -1,14 +1,16 @@
 Generalized linear mixed model fit by maximum likelihood (Laplace Approximation)
 (p-values based on Wald z-scores) ['glmerMod']
  Family: binomial  ( logit )
-Formula: produced_label ~ 1 + test_partner + c_similarity + test_partner:c_similarity +      c_norm + block + c_similarity:block + test_partner:block +  
-    test_partner:c_similarity:block + (1 + test_partner | target_label) +      (1 + test_partner | subjID)
+Formula: produced_label ~ 1 + test_partner + c_similarity + test_partner:c_similarity +  
+    c_norm + block + c_similarity:block + test_partner:block +      test_partner:c_similarity:block + (1 + test_partner | target_label) +  
+    (1 + test_partner | subjID)
    Data: acc_binomial
-Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,      calc.derivs = TRUE, use.last.params = FALSE, checkControl = list( 
-        check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",          check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",  
-        check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",          check.scaleX = "warning", check.formula.LHS = "stop"),  
-    checkConv = list(check.conv.grad = list(action = "warning",          tol = 0.002, relTol = NULL), check.conv.singular = list( 
-        action = "message", tol = 1e-04), check.conv.hess = list(         action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  "merControl"))
+Control: structure(list(optimizer = "bobyqa", restart_edge = TRUE, boundary.tol = 1e-05,  
+    calc.derivs = TRUE, use.last.params = FALSE, checkControl = list(         check.nobs.vs.rankZ = "ignore", check.nobs.vs.nlev = "stop",  
+        check.nlev.gtreq.5 = "ignore", check.nlev.gtr.1 = "stop",          check.nobs.vs.nRE = "stop", check.rankX = "message+drop.cols",  
+        check.scaleX = "warning", check.formula.LHS = "stop"),      checkConv = list(check.conv.grad = list(action = "warning",  
+        tol = 0.002, relTol = NULL), check.conv.singular = list(         action = "message", tol = 1e-04), check.conv.hess = list( 
+        action = "warning", tol = 1e-06)), optCtrl = list()), class = c("lmerControl",  "merControl"))
 
      AIC      BIC   logLik deviance df.resid 
   1420.4   1501.1   -695.2   1390.4     1597 

@@ -14,6 +14,7 @@ save_model_to_html <- function(model, decimals, filename) {
     c_entrainment_ACC = "Partner-Specific Label Maintenance",
     test_partner = "Test Partner",
     c_norm = "Naming Agreement",
+    c_similarity  = "Semantic Similarity",
     training_order = "Training Order",
     produced_label = "Produced Label",
     target_label = "Item",
